@@ -15,7 +15,6 @@
 #define __GTGET_H 1
 
 #define BUFSIZE 20000
-#define FULLNAME "gtget 0.3.2"
 
 #define METHOD_GET	0
 #define METHOD_POST	1

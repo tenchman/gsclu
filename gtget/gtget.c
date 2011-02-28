@@ -541,7 +541,7 @@ static void make_http_request(connection_t * conn, strbuf_t * req)
   }
 
   strbuf_appends(req,
-		 "\r\nUser-Agent: " FULLNAME "\r\nConnection: close\r\n\r\n");
+		 "\r\nUser-Agent: gtget-" VERSION "\r\nConnection: close\r\n\r\n");
 }
 
 int do_get(connection_t * conn)
