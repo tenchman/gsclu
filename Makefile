@@ -41,11 +41,10 @@ GTGETOBJ  = $(patsubst %.c,%.o,$(GTGETSRC))
 
 SOURCES   = read_write.c read_write.h ps.c mimencode.c attributes.h mmapfile.c mmapfile.h
 SOURCES  += tunctl.c certinfo.c sstrip.c rblq.c rbld.c wakelan.c
-SOURCES  += typeinfo.c $(STRSRC) $(GTGETSRC)
+SOURCES  += $(STRSRC) $(GTGETSRC)
 SOURCES  += $(wildcard $(GTGET)/*.h) $(wildcard str/*.h)
 
-PROGRAMS  = ps mimencode gtget health certinfo tunctl rblq rbld wakelan
-PROGRAMS += xmlfilter typeinfo
+PROGRAMS  = ps mimencode gtget certinfo tunctl rblq rbld wakelan
 TARGETS   = $(patsubst %,bin/%,$(PROGRAMS))
 VIMAFTER  = ~/.vim/after/syntax
 
@@ -97,15 +96,6 @@ bin/ps: .objs/read_write.o .objs/ps.o
 bin/tunctl: .objs/tunctl.o
 	$(LINK)$(CC) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -I$(KERNELINC) -o $@ $^
 
-bin/typeinfo: .objs/typeinfo.o
-	$(LINK)$(CC) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LIBSTR)
-
-bin/xmlfilter: .objs/xmlfilter.o
-	$(LINK)$(CC) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -o $@ $^
-
-bin/health: .objs/health.o $(LIBSTR)
-	$(LINK)$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
-
 bin/gtget: $(GTGETOBJ) $(LIBSTR) gtget/gtget.h
 	$(LINK)$(CC) $(CFLAGS) -Istr -I$(GTGET) $(LDFLAGS) -o $@ $^ $(LIBS) $(SSLLIB) -lm -levent
 
@@ -113,9 +103,6 @@ bin/certinfo: .objs/certinfo.o $(LIBSTR)
 	$(LINK)$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) -lmatrixssl
 
 bin/rbld: .objs/rbld.o .objs/mmapfile.o
-	$(LINK)$(CC) $(CFLAGS) -static -Wl,--gc-sections -o $@ $^
-
-bin/menu: .objs/readkey.o .objs/menu.o
 	$(LINK)$(CC) $(CFLAGS) -static -Wl,--gc-sections -o $@ $^
 
 clean:
