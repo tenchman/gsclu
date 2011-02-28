@@ -170,6 +170,8 @@ void gtget_ssl_connect(connection_t * conn)
 REGPARM(1)
 void gtget_ssl_close(connection_t * conn)
 {
-  sslparam_t *ssl = (sslparam_t *) conn->ssl;
-  ssl_close_notify(&ssl->ssl);
+  if (conn->ssl) {
+    sslparam_t *ssl = (sslparam_t *) conn->ssl;
+    ssl_close_notify(&ssl->ssl);
+  }
 }
