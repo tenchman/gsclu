@@ -177,27 +177,32 @@ static char *tryproxy(char *host, char *search)
 REGPARM(1)
 static void setup_proxy(connection_t * conn)
 {
-  char *tmp, *host;
+  char *tmp, *host = NULL;
   int port;
 
   if (conn->flags & GTGET_FLAG_DOSSL)
     host = tryproxy(conn->remote->host, "https_proxy");
-  else
+  
+  if (!host)
     host = tryproxy(conn->remote->host, "http_proxy");
 
   if (!host)
     host = getenv("ALL_PROXY");
 
   if (host) {
-    if (!strncasecmp(host, "http://", 7))
-      host += 7;
+    int n;
+    if ((tmp = strstr(host, "://")))
+      host = tmp + 3;
+    
     if ((tmp = strchr(host, ':'))) {
-      *tmp++ = '\0';
-      port = atoi(tmp);
-    } else
+      n = tmp - host;
+      port = atoi(++tmp);
+    } else {
       port = 3128;
-
-    conn->proxy->host = host;
+      n = strlen(host);
+    }
+    free(conn->proxy->host);
+    conn->proxy->host = strndup(host, n);
     conn->proxy->port = port;
     conn->proxy->auth = tryconfig(conn->remote->host, "proxyauth");
   }
