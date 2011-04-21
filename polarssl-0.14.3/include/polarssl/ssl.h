@@ -307,6 +307,10 @@ struct _ssl_context
      */
     unsigned char *hostname;
     unsigned long  hostname_len;
+
+    int (*validator)(x509_cert *, int, void *);
+					/*!<  user validator function */
+    void *userdata;			/*!<  user supplied data      */
 };
 
 #ifdef __cplusplus
@@ -331,6 +335,19 @@ int ssl_init( ssl_context *ssl );
  * \param endpoint must be SSL_IS_CLIENT or SSL_IS_SERVER
  */
 void ssl_set_endpoint( ssl_context *ssl, int endpoint );
+
+/**
+ * \brief          Set a user defined certificate validator
+ *
+ * \param ssl      SSL context
+ * \validator      pointer to the user defined validator function
+ * \status         the actual verify result
+ * \userdata       pointer to user data which passed as second parameter
+ *                 to validator argument
+ */
+void ssl_set_validator( ssl_context *ssl,
+			int (*validator)( x509_cert *peer_cert, int status, void *data ),
+			void *data );
 
 /**
  * \brief          Set the certificate verification mode

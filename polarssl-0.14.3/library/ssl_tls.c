@@ -1409,7 +1409,10 @@ int ssl_parse_certificate( ssl_context *ssl )
         if( ret != 0 )
             SSL_DEBUG_RET( 1, "x509_verify_cert", ret );
 
-        if( ssl->authmode != SSL_VERIFY_REQUIRED )
+        if( ssl->validator != NULL )
+	    ret = ssl->validator( ssl->peer_cert, ssl->verify_result, ssl->userdata );
+
+	if( ssl->authmode != SSL_VERIFY_REQUIRED )
             ret = 0;
     }
 
@@ -1718,6 +1721,14 @@ int ssl_init( ssl_context *ssl )
 void ssl_set_endpoint( ssl_context *ssl, int endpoint )
 {
     ssl->endpoint   = endpoint;
+}
+
+void ssl_set_validator( ssl_context *ssl,
+			int (*validator)( x509_cert *peer_cert, int status, void *data ),
+			void *userdata )
+{
+    ssl->validator  = validator;
+    ssl->userdata   = userdata;
 }
 
 void ssl_set_authmode( ssl_context *ssl, int authmode )
