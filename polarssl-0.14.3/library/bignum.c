@@ -369,6 +369,7 @@ int mpi_write_string( const mpi *X, int radix, char *s, int *slen )
     if( radix == 16 )
     {
         int c, i, j, k;
+	int c1, c2;
 
         for( i = X->n - 1, k = 0; i >= 0; i-- )
         {
@@ -379,7 +380,10 @@ int mpi_write_string( const mpi *X, int radix, char *s, int *slen )
                 if( c == 0 && k == 0 && (i + j) != 0 )
                     continue;
 
-                p += sprintf( p, "%02X", c );
+		c1 = c >> 4;
+                c2 = c & 15;
+		*p++ = c1 >= 10 ? c1 - 10 + 'A' : c1 + '0';
+		*p++ = c2 >= 10 ? c2 - 10 + 'A' : c2 + '0';
                 k = 1;
             }
         }
@@ -453,14 +457,12 @@ int mpi_write_file( const char *p, const mpi *X, int radix, FILE *fout )
     s[slen++] = '\r';
     s[slen++] = '\n';
 
-    if( fout != NULL )
-    {
-        if( fwrite( p, 1, plen, fout ) != plen ||
-            fwrite( s, 1, slen, fout ) != slen )
-            return( POLARSSL_ERR_MPI_FILE_IO_ERROR );
-    }
-    else
-        printf( "%s%s", p, s );
+    if( fout == NULL )
+	fout = stdout;
+
+    if( fwrite( p, 1, plen, fout ) != plen ||
+        fwrite( s, 1, slen, fout ) != slen )
+        return( POLARSSL_ERR_MPI_FILE_IO_ERROR );
 
 cleanup:
 
