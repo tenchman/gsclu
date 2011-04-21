@@ -208,14 +208,31 @@ static void setup_proxy(connection_t * conn)
   }
 }
 
+REGPARM(2)
+static const char* addrstr(int af, struct sockaddr *addr)
+{
+  union {
+    struct sockaddr_in *in;
+    struct sockaddr_in6 *in6;
+    struct sockaddr *a;
+  } ptr = { .a = addr };
+  char __addrstr[INET6_ADDRSTRLEN] = { 0 };
+
+  if (af == AF_INET6) {
+    return inet_ntop(af, &ptr.in6->sin6_addr, __addrstr, INET6_ADDRSTRLEN);
+  } else {
+    return inet_ntop(af, &ptr.in->sin_addr, __addrstr, INET6_ADDRSTRLEN);
+  }
+}
+
 REGPARM(1)
-static int do_connect(connection_t * conn)
+static void do_connect(connection_t * conn)
 {
   char *host;
-  struct in_addr INADDR;
-  struct in_addr *inaddr = &INADDR;
-  struct hostent *hostent = NULL;
-  int port, i = 0, succeeded = 0;
+  int sfd = -1, succeeded = 0;
+  struct addrinfo hints;
+  struct addrinfo *result, *rp;
+  char service[FMT_ULONG] = { 0 };
 
   setup_proxy(conn);
   if (conn->flags & GTGET_FLAG_DOSSL)
@@ -225,61 +242,56 @@ static int do_connect(connection_t * conn)
 
   if (conn->proxy->host) {
     host = conn->proxy->host;
-    port = conn->proxy->port;
+    service[fmt_ulong(service, conn->proxy->port)] = '\0';
     if (conn->verbosity >= 2)
-      write2f(" => using proxy at %s:%d\n", host, (unsigned long) port);
+      write2f(" => using proxy at %s:%d\n", host, (unsigned long) service);
   } else {
     host = conn->remote->host;
-    port = conn->remote->port;
+    service[fmt_ulong(service, conn->remote->port)] = '\0';
   }
 
-  if (!inet_aton(host, inaddr)) {
-    hostent = gethostbyname(host);
-    if (hostent == NULL)
-      die(conn, "can't resolve ", host);
-    inaddr = (struct in_addr *) hostent->h_addr_list[0];
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+
+  if (0 != getaddrinfo(host, service, &hints, &result)) {
+    die(conn, "can't resolve ", host);
   }
-  if ((conn->sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    die(conn, "Failed to create socket!", NULL);
 
-  while (inaddr) {
-    struct sockaddr_in addr;
-    memset((char *) &addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = inaddr->s_addr;
-
+  timer_start(&conn->connect_timer);
+  for (rp = result; rp != NULL; rp = rp->ai_next) {
     if (conn->verbosity)
-      write2f(" => trying %s: ", inet_ntoa(*inaddr));
+      write2f(" => trying %s: ", addrstr(rp->ai_family, rp->ai_addr));
+
+    if ((sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol)) < 0)
+      continue;
+
     alarm(conn->timeout);
-    timer_start(&conn->connect_timer);
-    if (CONNECT(conn->sockfd, &addr) == -1) {
+    if (connect(sfd, rp->ai_addr, rp->ai_addrlen) == -1) {
       if (conn->verbosity)
 	write2f("FAILED %s\n", strerror(errno));
-      if (hostent)
-	inaddr = (struct in_addr *) hostent->h_addr_list[i++];
-      else
-	inaddr = NULL;
-      continue;
+    } else {
+      if (conn->verbosity)
+	write2f("OK\n");
+      succeeded = 1;
+      break;
     }
-    timer_stop(&conn->connect_timer);
-    if (conn->verbosity)
-      write2f("OK\n");
-    succeeded = 1;
     alarm(0);
-    break;
   }
+  timer_stop(&conn->connect_timer);
 
   if (!succeeded)
     die(conn, "can't connect to remote host ", host);
 
   if (conn->verbosity)
-    write2f(" => connected to %s:%d <%s>\n", host, port, inet_ntoa(*inaddr));
+    write2f(" => connected to %s:%s <%s>\n", host, service,
+	addrstr(rp->ai_family, rp->ai_addr));
 
+  freeaddrinfo(result);
+
+  conn->sockfd = sfd;
   if (conn->flags & GTGET_FLAG_DOSSL)
     gtget_ssl_connect(conn);
-
-  return (conn->sockfd);
 }
 
 /* TODO: needs some investigation
@@ -745,7 +757,7 @@ int main(int argc, char **argv)
   /**
    * Setup the connection and try to get the requested source.
   **/
-  conn.sockfd = do_connect(&conn);
+  do_connect(&conn);
   retval = do_get(&conn);
 
   while ((resp.reason == 301 || resp.reason == 302 || resp.reason == 307)
@@ -755,7 +767,7 @@ int main(int argc, char **argv)
     write2f(" => got new location: %s\n", conn.uri);
     parseurl(&conn);
 
-    conn.sockfd = do_connect(&conn);
+    do_connect(&conn);
     retval = do_get(&conn);
   }
 
@@ -791,7 +803,7 @@ int main(int argc, char **argv)
 
     write2f
 	(" - connect time: %d ms\n - total time:   %d ms\n - throughput:   %d.%d %sb/s\n",
-	 conn.connect_timer.elapsed, conn.timer.elapsed, (long) bps, (long) rem,
+	 conn.connect_timer.elapsed, conn.timer.elapsed, (int) bps, (int) rem,
 	 suffix);
   }
 
