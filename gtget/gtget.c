@@ -21,7 +21,7 @@
     - option -r for max. retries
 */
 
-#define SVNID		"$Id: gtget.c 73 2009-05-29 11:36:46Z gernot $"
+#define _GNU_SOURCE
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -444,7 +444,7 @@ static int read_answer(connection_t * conn)
     if (conn->response->chunked) {
       int written, n;
     writemore:
-      if (len <= conn->response->chunklength) {
+      if ((size_t)len <= conn->response->chunklength) {
 	written = do_write(conn, &ctx, pos, len);
 	result += written;
 	len -= written;
@@ -479,7 +479,7 @@ static int read_answer(connection_t * conn)
 #endif
 
     if (conn->response->contentlength
-	&& result >= conn->response->contentlength)
+	&& (size_t)result >= conn->response->contentlength)
       break;
   }
 
