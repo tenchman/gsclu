@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "gtget.h"
 #include "strbuf.h"
 #include "fmt.h"
