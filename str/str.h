@@ -3,7 +3,9 @@
 
 #include <sys/types.h>
 
+#ifndef REGPARM
 #define REGPARM(x) __attribute__((regparm(x)))
+#endif
 
 size_t str_ecopy(char *dst, const char *end, const char *src);
 size_t str_eol(const char *line, size_t * len);
