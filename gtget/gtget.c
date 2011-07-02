@@ -26,15 +26,19 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <strings.h>
 #include <signal.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <ctype.h>
 #include <math.h>
 #include <md5.h>
 #include <limits.h>
+#include <errno.h>
 #include "../attributes.h"
 #include "timer.h"
 #include "strbuf.h"
@@ -209,20 +213,22 @@ static void setup_proxy(connection_t * conn)
 }
 
 REGPARM(2)
-static const char* addrstr(int af, struct sockaddr *addr)
+static const char* addrstr(char *dst, int af, struct sockaddr *addr)
 {
   union {
     struct sockaddr_in *in;
     struct sockaddr_in6 *in6;
     struct sockaddr *a;
   } ptr = { .a = addr };
-  char __addrstr[INET6_ADDRSTRLEN] = { 0 };
+  char *ret = NULL;
 
   if (af == AF_INET6) {
-    return inet_ntop(af, &ptr.in6->sin6_addr, __addrstr, INET6_ADDRSTRLEN);
+    ret = inet_ntop(af, &ptr.in6->sin6_addr, dst, INET6_ADDRSTRLEN);
   } else {
-    return inet_ntop(af, &ptr.in->sin_addr, __addrstr, INET6_ADDRSTRLEN);
+    ret = inet_ntop(af, &ptr.in->sin_addr, dst, INET6_ADDRSTRLEN);
   }
+  /* Work around a bug in dietlibc on 64bit systems */
+  return ret ? dst : NULL;
 }
 
 REGPARM(1)
@@ -233,6 +239,7 @@ static void do_connect(connection_t * conn)
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   char service[FMT_ULONG] = { 0 };
+  char __addrstr[INET6_ADDRSTRLEN] = { 0 };
 
   setup_proxy(conn);
   if (conn->flags & GTGET_FLAG_DOSSL)
@@ -261,7 +268,7 @@ static void do_connect(connection_t * conn)
   timer_start(&conn->connect_timer);
   for (rp = result; rp != NULL; rp = rp->ai_next) {
     if (conn->verbosity)
-      write2f(" => trying %s: ", addrstr(rp->ai_family, rp->ai_addr));
+      write2f(" => trying %s: ", addrstr(__addrstr, rp->ai_family, rp->ai_addr));
 
     if ((sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol)) < 0)
       continue;
@@ -285,7 +292,7 @@ static void do_connect(connection_t * conn)
 
   if (conn->verbosity)
     write2f(" => connected to %s:%s <%s>\n", host, service,
-	addrstr(rp->ai_family, rp->ai_addr));
+	addrstr(__addrstr, rp->ai_family, rp->ai_addr));
 
   freeaddrinfo(result);
 
@@ -599,7 +606,7 @@ static void usage(void)
 {
   write2f("%s", "\n\
  gtget (" VERSION ")\n\n\
- Copyright (C) 2004-2007++ - Gernot Tenchio <gernot@tenchio.de>\n\
+ Copyright (C) 2004-2011 - Gernot Tenchio <gernot@tenchio.de>\n\
  This program may be freely redistributed under the terms of the GNU GPL\n\
 \n\
  usage: gtget [ options ] URL\n\
@@ -778,23 +785,22 @@ int main(int argc, char **argv)
   }
 
   if (conn.verbosity) {
-    double bits = (double) conn.response->totallength * 8.0;
-    double secs = (double) conn.timer.elapsed / 1000.0;
-    double rem = 0.0, bps = bits / secs;
+    double bitspersec = (conn.response->totallength * 8.0) / (conn.timer.elapsed / 1000.0);
     char *suffix = "";
+    int bps, rem;
 
 #define MBIT 1048576.0
 #define KBIT 1024.0
 
-    if (bps > MBIT) {
-      rem = fmod(bps, MBIT);
-      bps /= MBIT;
+    if (bitspersec > MBIT) {
+      bitspersec /= MBIT;
       suffix = "M";
-    } else if (bps > KBIT) {
-      rem = fmod(bps, KBIT);
-      bps /= KBIT;
+    } else if (bitspersec > KBIT) {
+      bitspersec /= KBIT;
       suffix = "K";
     }
+    bps = (int)bitspersec;
+    rem = (int)((bitspersec - bps) * 10);
 
     if (conn.outfile)
       write2f("%s%d bytes (%d bytes total) written to \"%s\"\n",
@@ -803,8 +809,7 @@ int main(int argc, char **argv)
 
     write2f
 	(" - connect time: %d ms\n - total time:   %d ms\n - throughput:   %d.%d %sb/s\n",
-	 conn.connect_timer.elapsed, conn.timer.elapsed, (int) bps, (int) rem,
-	 suffix);
+	 conn.connect_timer.elapsed, conn.timer.elapsed, bps, rem, suffix);
   }
 
   cleanup(&conn, 1);
