@@ -33,6 +33,7 @@
 #include <strings.h>
 #include <signal.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <ctype.h>
 #include <math.h>
