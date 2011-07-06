@@ -5,37 +5,31 @@ SSLMODULE = polarssl
 
 ARCH      = i386
 DIET      = /opt/diet
-CC        = $(DIET)/bin/$(ARCH)-tt-linux-dietlibc-gcc
+CC        = $(DIET)/bin/diet gcc
 SILENT    = @
 
 KERNELINC = /lib/modules/$(shell uname -r)/build/include
-MATRIX    = $(DIET)/include/matrixssl
 
 INDENT    = indent -kr -i2 -ts8 -di1 -l80
 
 CFLAGS    = -Wcast-align -Wpadded -Wall -Wsign-compare -Wpointer-arith -Wstrict-aliasing
 CFLAGS   += -Os -fomit-frame-pointer
-CFLAGS   += -ffunction-sections -fdata-sections -mpreferred-stack-boundary=2
+CFLAGS   += -ffunction-sections -fdata-sections -mpreferred-stack-boundary=4
 CFLAGS   += -DVERSION=\"$(NAME)-$(VERSION)\" -g
 CFLAGS   += -Igtget -Istr -fno-inline -isystem $(DIET)/include
 LDFLAGS   = -static -Wl,--gc-sections
 
+POLARSSL  = polarssl-0.14.3
+
 LIBSTR    = str/libstr.a
+LIBSSL    = $(POLARSSL)/library/libpolarssl.a
 
 STRSRC    = $(wildcard str/*.c)
 GTGET     = gtget
 GTGETSRC  = gtget/check_cn.c gtget/gtget.c gtget/gtget_config.c
 GTGETSRC += gtget/gtget_io.c gtget/gtget_utils.c gtget/timer_start.c
 GTGETSRC += gtget/timer_stop.c
-
-ifeq ($(SSLMODULE),matrixssl)
-GTGETSRC += gtget/gtget_matrixssl.c gtget/sslSocket.c
-SSLLIB    = -lmatrixssl
-endif
-ifeq ($(SSLMODULE),polarssl)
 GTGETSRC += gtget/gtget_polarssl.c
-SSLLIB    = -lpolarssl
-endif
 
 GTGETOBJ  = $(patsubst %.c,%.o,$(GTGETSRC))
 
@@ -44,7 +38,7 @@ SOURCES  += tunctl.c certinfo.c sstrip.c rblq.c rbld.c wakelan.c
 SOURCES  += $(STRSRC) $(GTGETSRC)
 SOURCES  += $(wildcard $(GTGET)/*.h) $(wildcard str/*.h)
 
-PROGRAMS  = ps mimencode gtget certinfo tunctl rblq rbld wakelan
+PROGRAMS  = ps mimencode gtget tunctl rblq rbld wakelan # certinfo
 TARGETS   = $(patsubst %,bin/%,$(PROGRAMS))
 VIMAFTER  = ~/.vim/after/syntax
 
@@ -61,7 +55,7 @@ export CC CFLAGS LDFLAGS SILENT
 	$(COMPILE)$(CC) -Istr -I$(GTGET) $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
 
 gtget/%.o: gtget/%.c
-	$(COMPILE)$(CC) -Istr -I$(GTGET) $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
+	$(COMPILE)$(CC) -Istr -I$(GTGET) -I$(POLARSSL)/include $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
 
 %: .objs/%.o
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -84,6 +78,9 @@ gsclu.spec: Makefile gsclu.spec.in
 config.h: configure
 	sh configure
 
+$(LIBSSL):
+	$(MAKE) CC='$(CC)' DEFINES=-DHAVE_RDTSC OFLAGS='$(CFLAGS)' -C $(POLARSSL)/library/
+
 $(LIBSTR):
 	$(MAKE) -C str
 
@@ -96,8 +93,8 @@ bin/ps: .objs/read_write.o .objs/ps.o
 bin/tunctl: .objs/tunctl.o
 	$(LINK)$(CC) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) -I$(KERNELINC) -o $@ $^
 
-bin/gtget: $(GTGETOBJ) $(LIBSTR) gtget/gtget.h
-	$(LINK)$(CC) $(CFLAGS) -Istr -I$(GTGET) $(LDFLAGS) -o $@ $^ $(LIBS) $(SSLLIB) -lm -levent
+bin/gtget: $(GTGETOBJ) $(LIBSTR) $(LIBSSL) gtget/gtget.h
+	$(LINK)$(CC) $(CFLAGS) -Istr -I$(GTGET) $(LDFLAGS) -o $@ $^ $(LIBS) $(LIBSSL) -lm
 
 bin/certinfo: .objs/certinfo.o $(LIBSTR)
 	$(LINK)$(CC) $(LDFLAGS) -o $@ $^ $(LIBS) -lmatrixssl
@@ -108,6 +105,7 @@ bin/rbld: .objs/rbld.o .objs/mmapfile.o
 clean:
 	rm -rf .objs *.[oa] */*.[oa] core core.* $(TARGETS)
 	$(MAKE) -C str clean
+	$(MAKE) -C $(POLARSSL)/library/ clean
 
 realclean: clean
 	rm -f *~
@@ -137,7 +135,7 @@ indent:
 	$(INDENT) *.[ch] */*.[ch]
 
 tags: $(SOURCES)
-	ctags -R --exclude="*.html" --exclude=".svn" --exclude="*.xml" . $(MATRIX)
+	ctags -R --exclude="*.html" --exclude=".svn" --exclude="*.xml" .
  
  # Warning:
  #   "make syntax" will overwrite your ~/.vim/after/syntax/c.vim file.

@@ -39,8 +39,11 @@
 
 #include <md5.h>
 #include "../attributes.h"
-#include "sslSocket.h"
 #include "timer.h"
+
+#ifndef SSL_MAX_PLAINTEXT_LEN
+#define SSL_MAX_PLAINTEXT_LEN 0x4000
+#endif
 
 typedef struct response_header_t {
   char *reasonstr;
