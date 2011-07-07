@@ -9,7 +9,9 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 */
-
+#ifdef __dietlibc__
+#include <unistd.h> /* read/write are in the wrong header */
+#endif
 #include <stdlib.h>
 #include <unistd.h>
 #include "gtget.h"
