@@ -760,7 +760,7 @@ int main(int argc, char **argv)
   }
 
   if (chdir(configdir))
-    die(&conn, "can't chdir to ", configdir);
+    write2f("WARNING: can't chdir to %s\n", configdir);
 
   /**
    * Setup the connection and try to get the requested source.
