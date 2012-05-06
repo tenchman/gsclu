@@ -11,6 +11,7 @@
 */
 
 #include <stdlib.h>
+#include <unistd.h>
 #include "gtget.h"
 
 extern int timedout;
@@ -41,7 +42,7 @@ static ssize_t std_read(connection_t * c, char *buf, size_t n)
 
 int do_write(connection_t * conn, MD5_CTX * ctx, const char *buf, int len)
 {
-  size_t w;
+  ssize_t w;
   if ((w = write(conn->outfd, buf, len)) != len)
     die_write(conn);
 
