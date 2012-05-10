@@ -40,14 +40,14 @@ static ssize_t std_read(connection_t * c, char *buf, size_t n)
   return r;
 }
 
-int do_write(connection_t * conn, MD5_CTX * ctx, const char *buf, int len)
+int do_write(connection_t * conn, md5_context * ctx, const char *buf, int len)
 {
   ssize_t w;
   if ((w = write(conn->outfd, buf, len)) != len)
     die_write(conn);
 
   if (conn->flags & GTGET_FLAG_DOMD5)
-    MD5Update(ctx, (unsigned char *) buf, w);
+    md5_update(ctx, (unsigned char *) buf, w);
 
   if (conn->verbosity >= 4)
     write2f("DOWRITE: wrote %d bytes\n", w);
