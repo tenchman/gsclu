@@ -45,7 +45,7 @@
 #define STRBUF_ESYS	1
 #define STRBUF_ENULL	2
 
-#define STRBUF_ERROR -1
+#define STRBUF_ERROR (size_t)-1
 
 typedef struct strbuf_t {
   char *s;			/*! the holy buffer itself */
