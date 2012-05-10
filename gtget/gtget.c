@@ -37,7 +37,6 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <math.h>
-#include <md5.h>
 #include <limits.h>
 #include <errno.h>
 #include "../attributes.h"
@@ -407,9 +406,9 @@ static int read_answer(connection_t * conn)
 {
   char buf[BUFSIZE + 1];
   int len, eoh = 0, result = 0;
-  MD5_CTX ctx;
+  md5_context ctx;
 
-  MD5Init(&ctx);
+  md5_starts(&ctx);
 
   /* seek to the beginning of the output file */
   if (conn->outfd > STDERR_FILENO)
@@ -501,7 +500,7 @@ static int read_answer(connection_t * conn)
   if (conn->flags & GTGET_FLAG_DOMD5) {
     unsigned char buf[256];
     unsigned char hash[16];
-    MD5Final(hash, &ctx);
+    md5_finish(&ctx, hash);
     fmt_base64(buf, hash, 16);
 
     if (strcmp((char *) buf, conn->response->digest)) {

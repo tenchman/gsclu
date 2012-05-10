@@ -37,7 +37,7 @@
 #define GTGET_FLAG_PROGRESS (1<<3)
 #define GTGET_FLAG_FORCEMD5 (1<<4)
 
-#include <md5.h>
+#include <polarssl/md5.h>
 #include "../attributes.h"
 #include "timer.h"
 
@@ -105,7 +105,7 @@ int check_cn(char *cn, char *fqdn);
 int write2f(const char *format, ...);
 
 int do_get(connection_t * conn);
-int do_write(connection_t * conn, MD5_CTX * ctx, const char *buf, int len);
+int do_write(connection_t * conn, md5_context * ctx, const char *buf, int len);
 void proxy_connect(connection_t * conn);
 
 void die(connection_t * conn, const char *msg1, const char *msg2);
