@@ -364,8 +364,8 @@ size_t strbuf_vappendf(strbuf_t * strbuf, const char *format, va_list ap)
     if (*format == '%') {
       int flaglong = 0;
       int flags = 0;
-      int width = 0;
-      int preci = 0;
+      size_t width = 0;
+      size_t preci = 0;
 
       strtmp.len = 0;
 
