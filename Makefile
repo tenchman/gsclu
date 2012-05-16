@@ -24,7 +24,7 @@ CFLAGS   += -ffunction-sections -fdata-sections
 CFLAGS   += -DVERSION=\"$(NAME)-$(VERSION)\" -g
 CFLAGS   += -Igtget -Istr -fno-inline 
 
-POLARSSL  = polarssl-0.14.3
+POLARSSL  = polarssl-1.1.3
 
 LIBSTR    = str/libstr.a
 LIBSSL    = $(POLARSSL)/library/libpolarssl.a
