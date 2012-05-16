@@ -257,6 +257,7 @@ static void do_connect(connection_t * conn)
     service[fmt_ulong(service, conn->remote->port)] = '\0';
   }
 
+  memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
