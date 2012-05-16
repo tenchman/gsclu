@@ -14,6 +14,7 @@
 
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <polarssl/ssl.h>
 #include <polarssl/net.h>
 #include <polarssl/havege.h>
@@ -41,8 +42,15 @@ ssize_t gtget_ssl_write(connection_t * c, char *buf, size_t n)
   alarm(c->timeout);
   while (n > 0 && r >= 0) {
     s = n < SSL_MAX_PLAINTEXT_LEN ? n : SSL_MAX_PLAINTEXT_LEN;
-    while ((r = ssl_write(&ssl->ssl, (unsigned char *)buf, n)) <= 0
-	   && r == POLARSSL_ERR_NET_TRY_AGAIN);
+    while ((r = ssl_write(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
+      if (POLARSSL_ERR_NET_WANT_WRITE == r) {
+	/* */
+      } else if (POLARSSL_ERR_NET_WANT_READ == r) {
+	/* */
+      } else {
+	break;
+      }
+    }
     if (r < 0)
       return -1;
     n -= s;
@@ -50,7 +58,6 @@ ssize_t gtget_ssl_write(connection_t * c, char *buf, size_t n)
   }
   alarm(0);
   return r;
-
 }
 
 ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n)
@@ -61,8 +68,15 @@ ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n)
   if (timedout)
     return -1;
   alarm(c->timeout);
-  while ((r = ssl_read(&ssl->ssl, (unsigned char *)buf, n)) <= 0
-	 && r == POLARSSL_ERR_NET_TRY_AGAIN);
+  while ((r = ssl_read(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
+    if (POLARSSL_ERR_NET_WANT_WRITE == r) {
+      /* */
+    } else if (POLARSSL_ERR_NET_WANT_READ == r) {
+      /* */
+    } else {
+      break;
+    }
+  }
   alarm(0);
   if (r == POLARSSL_ERR_NET_CONN_RESET)
     return 0;
@@ -135,9 +149,9 @@ void gtget_ssl_init(connection_t * conn)
   ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, conn->remote->host);
   ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
   ssl_set_validator(&ssl->ssl, verify_cb, conn);
-  ssl_set_ciphers(&ssl->ssl, ssl_default_ciphers);
+  ssl_set_ciphersuites(&ssl->ssl, ssl_default_ciphersuites);
   ssl_set_session(&ssl->ssl, 1, 600, &ssl->ssn);
-  ssl_set_rng(&ssl->ssl, havege_rand, &ssl->hs);
+  ssl_set_rng(&ssl->ssl, havege_random, &ssl->hs);
   conn->ssl = ssl;
 }
 
@@ -152,7 +166,10 @@ void gtget_ssl_connect(connection_t * conn)
 
   ssl_set_bio(&ssl->ssl, net_recv, &conn->sockfd, net_send, &conn->sockfd);
 
-  while ((ret = ssl_handshake(&ssl->ssl)) == POLARSSL_ERR_NET_TRY_AGAIN);
+  while ((ret = ssl_handshake(&ssl->ssl))) {
+    if (ret != POLARSSL_ERR_NET_WANT_WRITE && ret != POLARSSL_ERR_NET_WANT_READ)
+      break;
+  }
 
   if (ret) {
     if (conn->verbosity >= 1)
@@ -161,7 +178,7 @@ void gtget_ssl_connect(connection_t * conn)
   }
 
   if (conn->verbosity >= 1)
-    write2f(" => ssl_handshake OK. %s\n", ssl_get_cipher(&ssl->ssl));
+    write2f(" => ssl_handshake OK. %s\n", ssl_get_ciphersuite(&ssl->ssl));
 
   conn->read = gtget_ssl_read;
   conn->write = gtget_ssl_write;
