@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <signal.h>		/* kill(2) */
 #include <errno.h>		/* ESRCH */
+#include <time.h>
 #include "mmapfile.h"
 
 #define RESULTMAX	0xFE
