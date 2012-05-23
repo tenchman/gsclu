@@ -3,5 +3,4 @@ tags
 .*.swp
 *.o
 *.a
-config.h
 bin/*
