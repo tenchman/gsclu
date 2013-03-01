@@ -282,7 +282,7 @@ tryagain:
 
 int query(struct in_addr *in, config_t * c)
 {
-  void *ptr = c->rbldomains;
+  char *ptr = c->rbldomains;
   rbldomain_t *dom = (rbldomain_t *) ptr;
   pid_t child;
 
