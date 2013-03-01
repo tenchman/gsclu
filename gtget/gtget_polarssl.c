@@ -83,7 +83,7 @@ ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n)
   return r;
 }
 
-static int verify_cb(x509_cert * crt, int status, void *arg)
+static int verify_cb(void *arg, x509_cert * crt, int depth, int *flags)
 {
   connection_t *conn = (connection_t *) arg;
   int cnlen = strlen(conn->remote->host);
@@ -148,7 +148,7 @@ void gtget_ssl_init(connection_t * conn)
   }
   ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, conn->remote->host);
   ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
-  ssl_set_validator(&ssl->ssl, verify_cb, conn);
+  ssl_set_verify(&ssl->ssl, verify_cb, conn);
   ssl_set_ciphersuites(&ssl->ssl, ssl_default_ciphersuites);
   ssl_set_session(&ssl->ssl, 1, 600, &ssl->ssn);
   ssl_set_rng(&ssl->ssl, havege_random, &ssl->hs);
