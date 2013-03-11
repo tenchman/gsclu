@@ -15,7 +15,7 @@
 
 void write1(char *s)
 {
-  write(2, s, strlen(s));
+  write(1, s, strlen(s));
 }
 
 void write2(char *s)
