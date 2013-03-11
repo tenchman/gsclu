@@ -220,7 +220,7 @@ static const char* addrstr(char *dst, int af, struct sockaddr *addr)
     struct sockaddr_in6 *in6;
     struct sockaddr *a;
   } ptr = { .a = addr };
-  char *ret = NULL;
+  const char *ret = NULL;
 
   if (af == AF_INET6) {
     ret = inet_ntop(af, &ptr.in6->sin6_addr, dst, INET6_ADDRSTRLEN);
