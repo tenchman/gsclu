@@ -40,6 +40,7 @@ typedef struct ps_dev_t {
 
 ps_dev_t *devlist;
 int devcnt;
+int hertz = 0;
 
 typedef struct proc_t proc_t;
 struct proc_t {
@@ -149,7 +150,7 @@ REGPARM(3)
 static int write_start_time(char *s, char *e, time_t val)
 {
   char month[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
-  time_t t = val / HZ + boot_time;
+  time_t t = val / hertz + boot_time;
   struct tm timestruct;
   struct tm *tm = &timestruct;
 
@@ -186,7 +187,7 @@ static int write_percent(char *s, char *e, unsigned int p)
 REGPARM(3)
 static int write_ptime(char *s, char *e, proc_t * P, int full)
 {
-  unsigned long t = (P->utime + P->stime) / HZ;
+  unsigned long t = (P->utime + P->stime) / hertz;
   unsigned hh, mm, ss, len = 0;
   ss = t % 60;
   t /= 60;
@@ -215,9 +216,9 @@ static int write_pcpu(char *s, char *e, proc_t * P)
   unsigned pcpu = 0;		/* scaled %cpu, 999 means 99.9% */
   ull seconds;			/* seconds of process life */
   total_time = P->utime + P->stime;
-  seconds = seconds_since_boot - P->start_time / HZ;
+  seconds = seconds_since_boot - P->start_time / hertz;
   if (seconds)
-    pcpu = (total_time * 1000ULL / HZ) / seconds;
+    pcpu = (total_time * 1000ULL / hertz) / seconds;
   return write_percent(s, e, pcpu);
 }
 
@@ -732,6 +733,7 @@ int main(int argc, char **argv)
   if (ioctl(1, TIOCGWINSZ, &win) != -1 && win.ws_col > 0)
     total_width = screen_width = win.ws_col;
 
+  hertz = sysconf(_SC_CLK_TCK);
   /* Jallaah!, Gernots very own getopt() */
   while (args) {
     while (*argv[args]) {
