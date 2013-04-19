@@ -24,10 +24,9 @@ CFLAGS   += -ffunction-sections -fdata-sections
 CFLAGS   += -DVERSION=\"$(NAME)-$(VERSION)\" -g
 CFLAGS   += -Igtget -Istr -fno-inline 
 
-POLARSSL  = polarssl-1.1.3
+LIBSSL  = -lpolarssl
 
 LIBSTR    = str/libstr.a
-LIBSSL    = $(POLARSSL)/library/libpolarssl.a
 
 STRSRC    = $(wildcard str/*.c)
 
@@ -62,7 +61,7 @@ export CC CFLAGS LDFLAGS SILENT
 .PHONY: tags
 
 .objs/%.o: %.c
-	$(THECC) -Istr -Igtget $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
+	$(THECC) -Istr -Igtget -I$(POLARSSL)/include $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
 
 gtget/%.o: gtget/%.c
 	$(THECC) -Istr -Igtget -I$(POLARSSL)/include $(CFLAGS) $(CPPFLAGS) -o $@ -c $^
@@ -88,9 +87,6 @@ gsclu.spec: Makefile gsclu.spec.in
 config.h: configure
 	sh configure
 
-$(LIBSSL):
-	$(MAKE) CC='$(CC)' DEFINES=-DHAVE_RDTSC OFLAGS='$(CFLAGS)' -C $(POLARSSL)/library/
-
 $(LIBSTR):
 	$(MAKE) -C str
 
@@ -103,8 +99,8 @@ bin/ps: .objs/read_write.o .objs/ps.o
 bin/tunctl: .objs/tunctl.o
 	$(THECC) $(LDFLAGS) -o $@ $^
 
-bin/gtget: $(GTGETOBJ) $(LIBSTR) $(LIBSSL)
-	$(THELD) $(LDFLAGS) -o $@ $^ -lm
+bin/gtget: $(GTGETOBJ) $(LIBSTR)
+	$(THELD) $(LDFLAGS) $(LIBSSL) -o $@ $^ -lm
 
 bin/certinfo: .objs/certinfo.o $(LIBSTR)
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBS) -lmatrixssl
@@ -115,7 +111,6 @@ bin/rbld: .objs/rbld.o .objs/mmapfile.o
 clean:
 	rm -rf .objs *.[oa] */*.[oa] core core.* $(TARGETS)
 	$(MAKE) -C str clean
-	$(MAKE) -C $(POLARSSL)/library/ clean
 
 realclean: clean
 	rm -f *~
