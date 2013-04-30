@@ -27,6 +27,7 @@ CFLAGS   += -Igtget -Istr -fno-inline
 LIBSSL  = -lpolarssl
 
 LIBSTR    = str/libstr.a
+LIBTIO    = tio/libtio.a
 
 STRSRC    = $(wildcard str/*.c)
 
@@ -37,11 +38,11 @@ GTGETSRC += gtget/gtget_polarssl.c
 GTGETOBJ  = $(patsubst %.c,%.o,$(GTGETSRC))
 
 SOURCES   = read_write.c read_write.h ps.c mimencode.c attributes.h mmapfile.c mmapfile.h
-SOURCES  += tunctl.c certinfo.c sstrip.c rblq.c rbld.c wakelan.c
+SOURCES  += tunctl.c certinfo.c sstrip.c rblq.c rbld.c wakelan.c sievectl.c
 SOURCES  += $(STRSRC) $(GTGETSRC)
 SOURCES  += $(wildcard gtget/*.h) $(wildcard str/*.h)
 
-PROGRAMS  = ps mimencode gtget tunctl rblq rbld wakelan # certinfo
+PROGRAMS  = ps mimencode gtget tunctl rblq rbld wakelan sievectl # certinfo
 TARGETS   = $(patsubst %,bin/%,$(PROGRAMS))
 
 ifeq ($(V), 1)
@@ -98,6 +99,9 @@ bin/ps: .objs/read_write.o .objs/ps.o
 
 bin/tunctl: .objs/tunctl.o
 	$(THECC) $(LDFLAGS) -o $@ $^
+
+bin/sievectl: .objs/sievectl.o .objs/tio.o
+	$(THELD) $(LDFLAGS) $(LIBSSL) -o $@ $^ -lresolv
 
 bin/gtget: $(GTGETOBJ) $(LIBSTR)
 	$(THELD) $(LDFLAGS) $(LIBSSL) -o $@ $^ -lm
