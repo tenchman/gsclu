@@ -99,7 +99,6 @@ struct connection_s {
 char *tryconfig(char *host, char *name);
 char *tryopen(const char *path);
 char *tryopen_alt(connection_t * conn, const char *file1, const char *file2);
-char *readconfig(char *name);
 void setup_io_funcs(connection_t * conn, int dossl);
 int check_cn(char *cn, char *fqdn);
 int write2f(const char *format, ...);

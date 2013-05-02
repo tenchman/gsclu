@@ -10,7 +10,7 @@
 /**
  * read ONE line from file \p name.
 **/
-char *readconfig(char *name)
+static char *readconfig(char *name)
 {
   int fd;
   char *retval = NULL;
