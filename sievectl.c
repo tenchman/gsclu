@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#ifdef __dietlibc__
+#include <strings.h>  /* strcasecmp */
+#endif
 #include <ctype.h>
 #include <poll.h>
 #include <sys/socket.h>
@@ -333,7 +336,7 @@ int main(int argc, char **argv)
 
   sv_init(&ctx);
 
-  while (EOF != (optch = getopt(argc, argv, "a:s:p:u:w:"))) {
+  while (EOF != (optch = getopt(argc, argv, "a:s:p:u:w:v"))) {
     switch (optch) {
       case 'a':
 	ctx.account = optarg;
@@ -350,6 +353,9 @@ int main(int argc, char **argv)
       case 'w':
 	ctx.pass = optarg;
 	break;
+      case 'v':
+	puts("\n sievectl (" VERSION ")\n");
+	return EXIT_SUCCESS;
       default:
 	sv_usage(EXIT_SUCCESS, NULL);
     }
