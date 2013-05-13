@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdarg.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 #ifdef __dietlibc__
 #include <strings.h>  /* strcasecmp */
 #endif
@@ -45,6 +50,7 @@ struct sv_ctx {
   char   *user;	    /* username */
   char   *pass;	    /* password */
   char   *script;   /* script name */
+  char    fd;       /* local file descriptor (get, put, check) */
   int     port;
   int     timeout;
   int     todo;	    /* command */
@@ -69,6 +75,15 @@ enum {
 };
 
 /* ======================================================================== */
+
+static void die(sievectx_t *ctx, const char *format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  vfprintf(stderr, format, ap);
+  va_end(ap);
+  exit(EXIT_FAILURE);
+}
 
 /* Static Buffer! I know, I'm a bad guy.*/
 int sv_parse_greeting(sievectx_t *ctx)
@@ -116,7 +131,7 @@ static int sv_authenticate_plain(sievectx_t *ctx)
   unsigned char buf[BUFSIZ], *pos = buf;
   size_t dlen, n, len = snprintf(iobuf, sizeof(iobuf), "Authenticate \"PLAIN\" \"");
   int ret = -1;
- 
+
   dlen = sizeof(iobuf) - len;
   memset(buf, 0, sizeof(buf));
   /* Account name + '\0' */
@@ -137,7 +152,7 @@ static int sv_authenticate_plain(sievectx_t *ctx)
   base64_encode((unsigned char *)iobuf + len, &dlen, buf, pos - buf);
   len += dlen;
   len += snprintf(iobuf + len, sizeof(iobuf) - len, "\"\r\n");
-  
+
   if (-1 == (ret = tio_send(ctx->io, iobuf, len))) {
     /* */
   } else if (-1 == (ret = sv_expect(ctx, "OK\r\n"))) {
@@ -195,34 +210,60 @@ static int sv_read_response(sievectx_t *ctx)
 **/
 static int sv_do_script(sievectx_t *ctx, char *command)
 {
-  char buf[BUFSIZ], intro[128];
-  int buflen, started = 0, introlen;
+  char cmd[128];
+  int r, cmdlen, buflen = 0;
 
-  while (0 < (buflen = read(0, buf, sizeof(buf)))) {
-    if (started) {
-      /* literal-c2s */
-      introlen = snprintf(intro, sizeof(intro), "{%d+}\r\n", buflen);
-    } else {
-      /* command + script name + literal-c2s */
-      introlen = snprintf(intro, sizeof(intro), "%s \"%s\" {%d+}\r\n", command, ctx->script, buflen);
-      started++;
+  if (0 < ctx->fd) {
+    /*
+     * Read script from already opened file descriptor
+    **/
+    struct stat st;
+    char buf[BUFSIZ];
+    if (-1 == fstat(ctx->fd, &st)) {
+      die(ctx, "%s: stat failed\n", __func__);
+    } else if (0 == st.st_size) {
+      die(ctx, "%s: zero sized script\n", __func__);
     }
-    tio_send(ctx->io, intro, introlen); 
-    tio_send(ctx->io, buf, buflen); 
+    /* command + script name + literal-c2s */
+    cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%zu+}\r\n", command, ctx->script, (size_t)st.st_size);
+    tio_send(ctx->io, cmd, cmdlen);
+    while (0 < (r = read(ctx->fd, buf, BUFSIZ)))
+      tio_send(ctx->io, buf, r);
+    tio_send(ctx->io, "\r\n", 2);
+  } else {
+    /*
+     * Read script from stdin
+     *
+     * We need to read the whole script into memory to calculate its
+     * size before sending it to the server.
+    **/
+    char *buf, *pos;
+    buf = pos = malloc(BUFSIZ);
+    while (0 < (r = read(0, pos, BUFSIZ))) {
+      buflen += r;
+      if (NULL == (buf = realloc(buf, buflen + BUFSIZ)))
+	die(ctx, "%s: out of memory\n", __func__);
+      pos = buf + buflen;
+    }
+    /* command + script name + literal-c2s */
+    cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%d+}\r\n", command, ctx->script, buflen);
+    tio_send(ctx->io, cmd, cmdlen);
+    tio_send(ctx->io, buf, buflen);
+    tio_send(ctx->io, "\r\n", 2);
+    free(buf);
   }
-  tio_send(ctx->io, "\r\n", 2); 
   return sv_read_response(ctx);
 }
 
 static int sv_command(sievectx_t *ctx, char *command)
 {
   int ret;
-  
+
   if (ctx->script)
     ret = snprintf(iobuf, sizeof(iobuf), "%s \"%s\"\r\n", command, ctx->script);
   else
     ret = snprintf(iobuf, sizeof(iobuf), "%s\r\n", command);
-  
+
   if (-1 == (ret = tio_send(ctx->io, iobuf, ret))) {
     /* */
   } else {
@@ -243,7 +284,7 @@ static int sv_starttls(sievectx_t *ctx)
     fprintf(stderr, "SSL/TLS handshake failed\n");
   } else {
     ret = 0;
-  } 
+  }
   return ret;
 }
 
@@ -259,13 +300,37 @@ static int sv_connect(sievectx_t *ctx)
   } else if (0 == ctx->flags.starttls) {
     ret = 0;
   } else if (-1 == tio_tls_init(ctx->io, pers, ctx->server)) {
-    fprintf(stderr, "failed to initialize TLS\n");  
+    fprintf(stderr, "failed to initialize TLS\n");
   } else if (-1 == sv_starttls(ctx)) {
     fprintf(stderr, "failed to start TLS session\n");
   } else {
     ret = 0;
   }
   return ret;
+}
+
+void sv_openlocalfile(sievectx_t *ctx, const char *filename)
+{
+  char *mode;
+  int flags;
+
+  switch (ctx->todo) {
+    case SV_CMD_PUTSCRIPT:
+    case SV_CMD_CHECKSCRIPT:
+      flags = O_RDONLY;
+      mode = "reading";
+      break;
+    case SV_CMD_GETSCRIPT:
+      flags = O_CREAT|O_WRONLY|O_TRUNC;
+      mode = "writing";
+      break;
+    default:
+      /* ignore filename param, TODO: print warning? */
+      return;
+  }
+
+  if (-1 == (ctx->fd = open(filename, flags, S_IRWXU)))
+    die(ctx, "ERROR: can't open '%s' for %s: %s\n", filename, mode, strerror(errno));
 }
 
 void sv_shutdown(sievectx_t *ctx)
@@ -290,7 +355,7 @@ void sv_usage(int status, char *message)
 {
   if (message)
     fprintf(stderr, message);
-  fprintf(stderr, "Usage: %s [ options ] command [ name ]\n", PACKAGE);
+  fprintf(stderr, "Usage: "PACKAGE" [ options ] command [ name ]\n");
   fprintf(stderr, "\
 Options:\n\
   -s <server>   Server to operate on\n\
@@ -298,6 +363,7 @@ Options:\n\
   -a <account>  Accountname\n\
   -u <user>     Username\n\
   -w <pass>     passWord\n\
+  -n <name>     local fileName (get, put, check)\n\
   -v            Display the version number.\n\
 Commands:\n\
   get           get script from server\n\
@@ -305,7 +371,7 @@ Commands:\n\
   put		submit script to the server.\n\
   ls		list the scripts on the server\n\
   rm		remove script from server\n\
-  set   	set a script active\n");
+  set	set a script active\n");
   exit(status);
 }
 
@@ -333,16 +399,20 @@ int main(int argc, char **argv)
 {
   sievectx_t ctx = { 0 };
   int optch;
+  char *filename = NULL;
 
   sv_init(&ctx);
 
-  while (EOF != (optch = getopt(argc, argv, "a:s:p:u:w:v"))) {
+  while (EOF != (optch = getopt(argc, argv, "a:n:s:p:u:w:v"))) {
     switch (optch) {
       case 'a':
 	ctx.account = optarg;
 	break;
       case 's':
 	ctx.server = optarg;
+	break;
+      case 'n':
+	filename = optarg;
 	break;
       case 'p':
 	ctx.port = atoi(optarg);
@@ -360,7 +430,7 @@ int main(int argc, char **argv)
 	sv_usage(EXIT_SUCCESS, NULL);
     }
   }
-  
+
   if (NULL == ctx.server)
     sv_usage(EXIT_FAILURE, "Missing server name\n\n");
   if (NULL == ctx.account)
@@ -377,7 +447,7 @@ int main(int argc, char **argv)
 
   if (NULL == *argv)
     sv_usage(EXIT_FAILURE, "Missing command\n\n");
-  
+
   if (0 >= (ctx.todo = sv_parsecommand(*argv++)))
     sv_usage(EXIT_FAILURE, "Unknown command\n\n");
 
@@ -385,6 +455,13 @@ int main(int argc, char **argv)
     sv_usage(EXIT_FAILURE, "Missing script name\n\n");
   else
     ctx.script = *argv;
+
+  /* try to open local file for writing (get) or
+   * reading (put, check) */
+  if (filename)
+    sv_openlocalfile(&ctx, filename);
+  else
+    ctx.fd = -1;
 
   if (-1 == sv_connect(&ctx)) {
     fprintf(stderr, "can't connect\n");
