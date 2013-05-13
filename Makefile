@@ -8,6 +8,7 @@ DIET      = /opt/diet
 CC        = $(DIET)/bin/diet gcc
 MOREFLAGS = -isystem $(DIET)/include
 LIBRESOLV =
+LDFLAGS   = -L/opt/diet/lib
 else
 CC        = gcc
 LIBRESOLV = -lresolv
@@ -71,7 +72,7 @@ gtget/%.o: gtget/%.c
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 all: config.h $(DIRS) $(TARGETS) bin/sstrip
-	@ls -l $(TARGETS)
+	@ls -lh $(TARGETS)
 
 static: LDFLAGS = -static -Wl,--gc-sections
 static: all
@@ -92,7 +93,7 @@ $(LIBSTR):
 	$(MAKE) -C str
 
 bin/%: %.c
-	$(THELD) $(LDFLAGS) -o $@ $^
+	$(THELD) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 bin/ps: .objs/read_write.o .objs/ps.o
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -101,13 +102,10 @@ bin/tunctl: .objs/tunctl.o
 	$(THECC) $(LDFLAGS) -o $@ $^
 
 bin/sievectl: .objs/sievectl.o .objs/tio.o
-	$(THELD) $(LDFLAGS) $(LIBSSL) -o $@ $^ -lresolv
+	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBSSL) $(LIBRESOLV)
 
 bin/gtget: $(GTGETOBJ) $(LIBSTR)
-	$(THELD) $(LDFLAGS) $(LIBSSL) -o $@ $^ -lm
-
-bin/certinfo: .objs/certinfo.o $(LIBSTR)
-	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBS) -lmatrixssl
+	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBSSL) -lm
 
 bin/rbld: .objs/rbld.o .objs/mmapfile.o
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBRESOLV)
@@ -128,7 +126,7 @@ dist: gsclu.spec
 
 strip: $(TARGETS) bin/sstrip
 	for i in $(TARGETS); do bin/sstrip $$i; done
-	@ls -l $(TARGETS)
+	@ls -lh $(TARGETS)
 
 install: $(TARGETS)
 	mkdir -p $(DESTDIR)/bin
