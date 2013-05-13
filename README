@@ -1,16 +1,16 @@
-Gernots Small Command Line Utils
---------------------------------
+== Gernots Small Command Line Utils
 
-Home brewed software
+=== Home brewed software
 
-gtget     :: HTTP(S) downloader (101K)
-ps        :: poor mans ps (13K)
-mimencode :: small mime encoder (1K)
+gtget     :: HTTP(S) downloader
+ps        :: poor mans ps
+mimencode :: small mime encoder
+sievectl  :: managed sieve client
 
-Software from others (with some modifications)
+=== Software from others (with some modifications)
 
-tunectl   :: Create, delete tun devices (8,1K)
-wakelan   :: Wake up a host with a wake-on-lan packet (15K)
-sstrip    :: Discard all nonessential bytes from an executable (52K)
+tunectl   :: Create, delete tun devices
+wakelan   :: Wake up a host with a wake-on-lan packet
+sstrip    :: Discard all nonessential bytes from an executable
 
-All sizes: statically linked against dietlibc
+// vim: syntax=asciidoc:
