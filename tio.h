@@ -3,15 +3,7 @@
 
 typedef int (*tio_errfunc)(char *str, size_t size, const char *format, va_list ap);
 
-/* ssl data */
-typedef struct {
-  ssl_context ssl;
-  entropy_context entropy;
-  ctr_drbg_context ctr_drbg;
-  x509_cert cacert;
-  x509_cert clicert;
-  rsa_context rsa;
-} ssl_ctx_t;
+typedef struct ssl_ctx_t ssl_ctx_t;
 
 typedef struct tio_buf_s {
   char buf[8100];
@@ -23,7 +15,6 @@ typedef struct tio_buf_s {
 typedef struct io_ctx io_ctx_t;
 struct io_ctx {
   int fd;
-  ssl_context *ssl;
   ssl_ctx_t *ssl_ctx;
   ssize_t (*recv) (io_ctx_t *, char *, size_t);
   ssize_t (*send) (io_ctx_t *, char *, size_t);

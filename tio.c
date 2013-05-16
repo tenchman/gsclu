@@ -13,6 +13,17 @@
 #define CAFILE  "/etc/ssl/certs/ca-bundle.crt"
 static char tio_buf[1024];
 
+/* ssl data */
+typedef struct {
+  ssl_context ssl;
+  entropy_context entropy;
+  ctr_drbg_context ctr_drbg;
+  x509_cert cacert;
+  x509_cert clicert;
+  rsa_context rsa;
+} _ssl_ctx_t;
+
+
 static ssize_t tio_std_recv(io_ctx_t *ctx, char *buf, size_t len)
 {
   return recv(ctx->fd, buf, len, 0);
@@ -26,7 +37,8 @@ static ssize_t tio_std_send(io_ctx_t *ctx, char *buf, size_t len)
 static ssize_t tio_tls_recv(io_ctx_t *ctx, char *buf, size_t len)
 {
   int ret;
-  while (0 >= (ret = ssl_read(ctx->ssl, (unsigned char *)buf, len))) {
+  _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
+  while (0 >= (ret = ssl_read(&sslctx->ssl, (unsigned char *)buf, len))) {
     if (ret != POLARSSL_ERR_NET_WANT_READ && ret != POLARSSL_ERR_NET_WANT_WRITE) {
       ret = -1;
       break;
@@ -38,7 +50,8 @@ static ssize_t tio_tls_recv(io_ctx_t *ctx, char *buf, size_t len)
 static ssize_t tio_tls_send(io_ctx_t *ctx, char *buf, size_t len)
 {
   int ret = 0;
-  while (len && 0 >= (ret = ssl_write(ctx->ssl, (const unsigned char *)buf, len))) {
+  _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
+  while (len && 0 >= (ret = ssl_write(&sslctx->ssl, (const unsigned char *)buf, len))) {
     if (ret != POLARSSL_ERR_NET_WANT_READ && ret != POLARSSL_ERR_NET_WANT_WRITE) {
       ret = -1;
       break;
@@ -62,18 +75,19 @@ io_ctx_t *tio_init(void)
 
 void tio_shutdown(io_ctx_t *io)
 {
+  _ssl_ctx_t *sslctx = (_ssl_ctx_t *)io->ssl_ctx;
   if (io->fd > 0) {
     shutdown(io->fd, SHUT_RDWR);
     net_close(io->fd);
   }
 
   /* cleanup all SSL related stuff */
-  if (io->ssl_ctx) {
-    x509_free(&io->ssl_ctx->cacert);
-    x509_free(&io->ssl_ctx->clicert);
-    rsa_free(&io->ssl_ctx->rsa);
-    ssl_free(&io->ssl_ctx->ssl);
-    free(io->ssl_ctx);
+  if (sslctx) {
+    x509_free(&sslctx->cacert);
+    x509_free(&sslctx->clicert);
+    rsa_free(&sslctx->rsa);
+    ssl_free(&sslctx->ssl);
+    free(sslctx);
   }
 
   free(io);
@@ -99,8 +113,9 @@ static char *tio_tls_error(int ret)
 int tio_tls_handshake(io_ctx_t *ctx)
 {
   int ret;
+  _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
 
-  while (0 != (ret = ssl_handshake(ctx->ssl)))
+  while (0 != (ret = ssl_handshake(&sslctx->ssl)))
   {
     if (POLARSSL_ERR_NET_WANT_READ != ret && POLARSSL_ERR_NET_WANT_WRITE != ret)
     {
@@ -109,7 +124,7 @@ int tio_tls_handshake(io_ctx_t *ctx)
     }
   }
 
-  if (0 != (ret = ssl_get_verify_result(ctx->ssl))) {
+  if (0 != (ret = ssl_get_verify_result(&sslctx->ssl))) {
     fprintf(stderr, "Verifying peer X.509 certificate failed.\n" );
     if ((ret & BADCERT_EXPIRED) != 0)
       fprintf(stderr, " server certificate has expired\n");
@@ -128,10 +143,10 @@ int tio_tls_handshake(io_ctx_t *ctx)
 
 int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server)
 {
-  ssl_ctx_t *ssl;
+  _ssl_ctx_t *ssl;
   int ret = -1;
 
-  if (NULL == (ssl = malloc(sizeof(ssl_ctx_t)))) {
+  if (NULL == (ssl = malloc(sizeof(_ssl_ctx_t)))) {
     fprintf(stderr, "%s: out of memory\n", __func__);
     return -1;
   }
@@ -153,8 +168,7 @@ int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server)
     ssl_set_bio(&ssl->ssl, net_recv, &ctx->fd, net_send, &ctx->fd);
     ssl_set_hostname(&ssl->ssl, server);
 
-    ctx->ssl_ctx = ssl;
-    ctx->ssl = &ssl->ssl;
+    ctx->ssl_ctx = (ssl_ctx_t *)ssl;
   }
   return ret ? -1 : 0;
 }
