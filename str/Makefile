@@ -1,5 +1,7 @@
 #Makefile for libstr
 
+include ../rules.mk
+
 CC      ?= i386-dietlibc-linux-gcc
 CFLAGS	?= -std=c99 -O2 -pipe -Wall -g
 LDFLAGS	?= 
@@ -34,19 +36,15 @@ $(OBJDIR):
 	mkdir $(OBJDIR)
 
 $(STATICLIB): $(SOURCES) $(OBJS)
-	@if [ "$(SILENT)" = "@" ]; then echo "  AR      $@"; fi
-	$(SILENT)ar cru $@ $(OBJS) 2>/dev/null
-	@if [ "$(SILENT)" = "@" ]; then echo "  RANLIB  $@"; fi
-	$(SILENT)ranlib $@ 2>/dev/null
+	$(THEAR) cru $@ $(OBJS) 2>/dev/null
+	$(THERL) $@ 2>/dev/null
 
 
 $(OBJDIR)/%.o: %.c
-	@if [ "$(SILENT)" = "@" ]; then echo "  CC      $@"; fi
-	$(SILENT)$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) -o $@ -c $^
+	$(THECC) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) -o $@ -c $^
 
 $(OBJDIR)/strbuf_%.o: _strbuf.c strbuf.h
-	@if [ "$(SILENT)" = "@" ]; then echo "  CC      $@"; fi
-	$(SILENT)$(CC) -I. -D$(patsubst $(OBJDIR)/%.o,P_%,$@) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+	$(THECC) -I. -D$(patsubst $(OBJDIR)/%.o,P_%,$@) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
 	rm -rf $(OBJDIR) $(STATICLIB)

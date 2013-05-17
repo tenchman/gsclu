@@ -46,15 +46,7 @@ SOURCES  += $(wildcard gtget/*.h) $(wildcard str/*.h)
 PROGRAMS  = ps mimencode gtget tunctl rblq rbld wakelan sievectl # certinfo
 TARGETS   = $(patsubst %,bin/%,$(PROGRAMS))
 
-ifeq ($(V), 1)
-THECC = $(CC)
-THELD = $(LD)
-VERBOSE = 
-else
-THECC = @echo " CC   $@"; $(CC)
-THELD = @echo " LINK $@"; $(LD)
-VERBOSE = @
-endif
+include rules.mk
 
 DIRS = bin .objs
 
