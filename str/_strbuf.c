@@ -79,8 +79,6 @@ size_t strbuf_check(strbuf_t * strbuf, const size_t len)
 #ifdef P_strbuf_setlength
 size_t strbuf_setlength(strbuf_t * strbuf, size_t len)
 {
-  if (len < 0)
-    return 0;
   if (STRBUF_LEN(strbuf) > len) {
     strbuf->len = len;
     strbuf->s[len] = '\0';
