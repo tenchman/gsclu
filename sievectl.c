@@ -19,8 +19,6 @@
 #include <polarssl/havege.h>
 #include <polarssl/error.h>
 #include <polarssl/net.h>
-#include "polarssl/entropy.h"
-#include "polarssl/ctr_drbg.h"
 #include "tio.h"
 
 #define PACKAGE "sievectl"
@@ -255,6 +253,9 @@ static int sv_do_script(sievectx_t *ctx, char *command)
   return sv_read_response(ctx);
 }
 
+/*
+ * send a simple command to the server and read its response
+**/
 static int sv_command(sievectx_t *ctx, char *command)
 {
   int ret;
@@ -354,8 +355,8 @@ void sv_init(sievectx_t *ctx)
 void sv_usage(int status, char *message)
 {
   if (message)
-    fprintf(stderr, message);
-  fprintf(stderr, "Usage: "PACKAGE" [ options ] command [ name ]\n");
+    fputs(message, stderr);
+  fprintf(stderr, "Usage: "PACKAGE" [ options ] command [ name ]\n\n");
   fprintf(stderr, "\
 Options:\n\
   -s <server>   Server to operate on\n\
@@ -364,14 +365,14 @@ Options:\n\
   -u <user>     Username\n\
   -w <pass>     passWord\n\
   -n <name>     local fileName (get, put, check)\n\
-  -v            Display the version number.\n\
+  -v            Display the version number.\n\n\
 Commands:\n\
   get           get script from server\n\
   check         check script on server.\n\
-  put		submit script to the server.\n\
-  ls		list the scripts on the server\n\
-  rm		remove script from server\n\
-  set	set a script active\n");
+  put           submit script to the server.\n\
+  ls            list the scripts on the server\n\
+  rm            remove script from server\n\
+  set           set a script active\n");
   exit(status);
 }
 
@@ -400,6 +401,9 @@ int main(int argc, char **argv)
   sievectx_t ctx = { 0 };
   int optch;
   char *filename = NULL;
+
+  if (1 == argc)
+    sv_usage(EXIT_SUCCESS, NULL);
 
   sv_init(&ctx);
 
