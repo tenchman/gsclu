@@ -73,8 +73,12 @@ void cleanup(connection_t * conn, int how)
       close(conn->outfd);
     conn->outfd = -1;
 
+    if (conn->conffd > 1)
+      close(conn->conffd);
+    conn->conffd = -1;
+
     /* remove the stale outfile */
-    if ((how > 1) && (chdir(conn->cwd) == 0))
+    if (how > 1)
       unlink(conn->outfile);
   }
 }

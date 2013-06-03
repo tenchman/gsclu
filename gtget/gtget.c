@@ -154,27 +154,16 @@ static void parseurl(connection_t * conn)
     *tmp++ = '\0';
     conn->remote->port = atoi(tmp);
   }
-  conn->remote->auth = tryconfig(conn->remote->host, "auth");
+  conn->remote->auth = tryconfig(conn, conn->remote->host, "auth");
 }
 
-REGPARM(2)
-static char *tryproxy(char *host, char *search)
+REGPARM(3)
+static char *tryproxy(connection_t * conn, char *host, char *search)
 {
   char *proxy;
-  int len = str_len(search) + 1;
-  char s[len];
-  memcpy(s, search, len);
-  proxy = tryconfig(host, s);
-  if (!proxy)
-    proxy = getenv(s);
-  if (!proxy) {
-    int i = 0;
-    while (s[i]) {
-      s[i] = toupper(s[i]);
-      i++;
-    }
-    proxy = getenv(search);
-  }
+  proxy = tryconfig(conn, host, search);
+  if (proxy)
+    proxy = getcaseenv(search);
   return proxy;
 }
 
@@ -185,19 +174,19 @@ static void setup_proxy(connection_t * conn)
   int port;
 
   if (conn->flags & GTGET_FLAG_DOSSL)
-    host = tryproxy(conn->remote->host, "https_proxy");
+    host = tryproxy(conn, conn->remote->host, "https_proxy");
   
   if (!host)
-    host = tryproxy(conn->remote->host, "http_proxy");
+    host = tryproxy(conn, conn->remote->host, "http_proxy");
 
   if (!host)
-    host = getenv("ALL_PROXY");
+    host = tryproxy(conn, conn->remote->host, "all_proxy");
 
   if (host) {
     int n;
     if ((tmp = strstr(host, "://")))
       host = tmp + 3;
-    
+
     if ((tmp = strchr(host, ':'))) {
       n = tmp - host;
       port = atoi(++tmp);
@@ -208,7 +197,7 @@ static void setup_proxy(connection_t * conn)
     free(conn->proxy->host);
     conn->proxy->host = strndup(host, n);
     conn->proxy->port = port;
-    conn->proxy->auth = tryconfig(conn->remote->host, "proxyauth");
+    conn->proxy->auth = tryconfig(conn, conn->remote->host, "proxyauth");
   }
 }
 
@@ -759,8 +748,8 @@ int main(int argc, char **argv)
     conn.flags &= ~GTGET_FLAG_PROGRESS;
   }
 
-  if (chdir(configdir))
-    write2f("WARNING: can't chdir to %s\n", configdir);
+  if (-1 == (conn.conffd = open(configdir, O_RDONLY)))
+    write2f("WARNING: can't open config folder @ %s\n", configdir);
 
   /**
    * Setup the connection and try to get the requested source.

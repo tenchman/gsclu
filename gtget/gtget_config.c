@@ -7,15 +7,32 @@
 #include "str.h"
 #include "gtget.h"
 
+/*
+ * read a variable from environment case insentive
+**/
+static char *getcaseenv(const char *s)
+{
+  int i;
+  unsigned int len;
+
+  if (NULL == __environ || NULL == s)
+    return NULL;
+  len = strlen(s);
+  for (i = 0; __environ[i]; ++i)
+    if (0 == (strncasecmp(__environ[i], s, len)) && ('=' == __environ[i][len]))
+      return __environ[i] + len + 1;
+  return NULL;
+}
+
 /**
  * read ONE line from file \p name.
 **/
-static char *readconfig(char *name)
+static char *readconfig(connection_t *conn, char *name)
 {
   int fd;
   char *retval = NULL;
   struct stat sb;
-  if ((fd = open(name, O_RDONLY)) > 0) {
+  if ((fd = openat(conn->conffd, name, O_RDONLY)) > 0) {
     if (fstat(fd, &sb) == 0) {
       int len = sb.st_size;
       char *txt = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -35,7 +52,7 @@ static char *readconfig(char *name)
  * try to read the content of the file "host/name". If that fails, try to
  * read the content of the file "name"
 **/
-char *tryconfig(char *host, char *name)
+char *tryconfig(connection_t *conn, char *host, char *name)
 {
   size_t len = str_len(host) + str_len(name) + 2;
   char buf[len];
@@ -46,8 +63,8 @@ char *tryconfig(char *host, char *name)
   tmp += str_ecopy(tmp, end, "/");
   tmp += str_ecopy(tmp, end, name);
 
-  if ((tmp = readconfig(buf)))
+  if ((tmp = readconfig(conn, buf)))
     return tmp;
 
-  return readconfig(name);
+  return readconfig(conn, name);
 }

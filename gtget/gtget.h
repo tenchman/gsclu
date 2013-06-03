@@ -71,6 +71,7 @@ struct connection_s {
   int sockfd;			/* the socket */
   int postfd;			/* the file descriptor to read the postdata from */
   int outfd;			/* the file descriptor to write the output to */
+  int conffd;			/* config folder file descriptor */
   int httpversion;		/* HTTP/1.[0|1] */
   int code;			/* error code to return on die() */
   char *outfile;		/* the filename of the file to write */
@@ -96,7 +97,7 @@ struct connection_s {
   unsigned int flags;
 };
 
-char *tryconfig(char *host, char *name);
+char *tryconfig(connection_t *conn, char *host, char *name);
 char *tryopen(const char *path);
 char *tryopen_alt(connection_t * conn, const char *file1, const char *file2);
 void setup_io_funcs(connection_t * conn, int dossl);
