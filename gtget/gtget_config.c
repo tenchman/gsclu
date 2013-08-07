@@ -10,7 +10,7 @@
 /*
  * read a variable from environment case insentive
 **/
-static char *getcaseenv(const char *s)
+char *getcaseenv(const char *s)
 {
   int i;
   unsigned int len;
