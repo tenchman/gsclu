@@ -21,9 +21,9 @@ int readstring(char *s, char **str);
 REGPARM(2)
 int readprocname(char *s, char **str);
 REGPARM(3)
-int writelonglong(char *s, char *end, long long l, int width, int align);
+int writelonglong(char *s, char *end, long long l, unsigned int width, int align);
 REGPARM(3)
-int writeulonglong(char *s, char *end, unsigned long long u, int width,
+int writeulonglong(char *s, char *end, unsigned long long u, unsigned int width,
 		   int align);
 REGPARM(3)
 int writestring(char *s, char *end, char *str, int width);

@@ -120,7 +120,7 @@ int skip(char *s, int n)
 }
 
 REGPARM(3)
-int writeulonglong(register char *s, char *end, unsigned long long u, int width,
+int writeulonglong(register char *s, char *end, unsigned long long u, unsigned int width,
 		   int align)
 {
   register unsigned int len;
@@ -158,7 +158,7 @@ int writeulonglong(register char *s, char *end, unsigned long long u, int width,
 }
 
 REGPARM(3)
-int writelonglong(register char *s, char *end, long long l, int width,
+int writelonglong(register char *s, char *end, long long l, unsigned int width,
 		  int align)
 {
   register unsigned int len = 0;
