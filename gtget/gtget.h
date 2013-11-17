@@ -122,4 +122,5 @@ REGPARM(1)
 void gtget_ssl_connect(connection_t * conn);
 ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n);
 ssize_t gtget_ssl_write(connection_t * c, char *buf, size_t n);
+char *getcaseenv(const char *s);
 #endif
