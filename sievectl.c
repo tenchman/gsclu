@@ -55,6 +55,7 @@ struct sv_ctx {
   int	  loggedin;
   io_ctx_t *io;
   struct {
+    unsigned dostarttls:1;
     unsigned starttls:1;
     unsigned unauthenticate:1;
   } flags;
@@ -98,7 +99,7 @@ int sv_parse_greeting(sievectx_t *ctx)
       if (strnequal(pos, "OK", 2) && isspace(pos[2])) {
 	break;
       } else if (0 == strncasecmp(pos, "\"STARTTLS\"", len)) {
-	ctx->flags.starttls = 1;
+	ctx->flags.starttls = ctx->flags.dostarttls;
       } else if (0 == strncasecmp(pos, "\"UNAUTHENTICATE\"", len)) {
 	ctx->flags.unauthenticate = 1;
       }
@@ -365,6 +366,7 @@ Options:\n\
   -u <user>     Username\n\
   -w <pass>     passWord\n\
   -n <name>     local fileName (get, put, check)\n\
+  -t            use STARTTLS if supported\n\
   -v            Display the version number.\n\n\
 Commands:\n\
   get           get script from server\n\
@@ -407,7 +409,7 @@ int main(int argc, char **argv)
 
   sv_init(&ctx);
 
-  while (EOF != (optch = getopt(argc, argv, "a:n:s:p:u:w:v"))) {
+  while (EOF != (optch = getopt(argc, argv, "a:n:s:p:u:w:vt"))) {
     switch (optch) {
       case 'a':
 	ctx.account = optarg;
@@ -426,6 +428,9 @@ int main(int argc, char **argv)
 	break;
       case 'w':
 	ctx.pass = optarg;
+	break;
+      case 't':
+	ctx.flags.dostarttls = 1;
 	break;
       case 'v':
 	puts("\n sievectl (" VERSION ")\n");
