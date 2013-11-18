@@ -99,7 +99,8 @@ int main(int argc, char *argv[])
   int sock;
   int optval = 1;
   int version = 0;
-  int i, j, c, rc;
+  int i, c, rc;
+  size_t j;
   char msg[1024];
   int msglen = 0;
   struct sockaddr_in bcast;
