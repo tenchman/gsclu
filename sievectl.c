@@ -113,12 +113,13 @@ int sv_parse_greeting(sievectx_t *ctx)
 
 static int sv_expect(sievectx_t *ctx, const char *s)
 {
-  int ret = -1;
-  memset(iobuf, 0, sizeof(iobuf));
-  if (-1 == tio_recv(ctx->io, iobuf, sizeof(iobuf))) {
-    /* */
-  } else if (0 != strcasecmp(iobuf, s)) {
-    /* */
+  int len, ret = -1;
+  int slen = strlen(s);
+  memset(&iobuf, 0, sizeof(iobuf));
+  if (-1 == (len = tio_recv(ctx->io, iobuf, sizeof(iobuf)))) {
+    fprintf(stderr, "%s: tio_recv failed\n", __func__);
+  } else if (0 != strncasecmp(iobuf + len - slen, s, slen)) {
+    fprintf(stderr, "%s: unexpected answer; '%s'", __func__, iobuf);
   } else {
     ret = 0;
   }
@@ -153,7 +154,7 @@ static int sv_authenticate_plain(sievectx_t *ctx)
   len += snprintf(iobuf + len, sizeof(iobuf) - len, "\"\r\n");
 
   if (-1 == (ret = tio_send(ctx->io, iobuf, len))) {
-    /* */
+    fprintf(stderr, "%s: tio_send failed\n", __func__);
   } else if (-1 == (ret = sv_expect(ctx, "OK\r\n"))) {
     /* */
   } else {
@@ -267,7 +268,7 @@ static int sv_command(sievectx_t *ctx, char *command)
     ret = snprintf(iobuf, sizeof(iobuf), "%s\r\n", command);
 
   if (-1 == (ret = tio_send(ctx->io, iobuf, ret))) {
-    /* */
+    fprintf(stderr, "%s: tio_send failed\n", __func__);
   } else {
     ret = sv_read_response(ctx);
   }
