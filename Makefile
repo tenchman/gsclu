@@ -63,7 +63,7 @@ gtget/%.o: gtget/%.c
 %: .objs/%.o
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-all: config.h $(DIRS) $(TARGETS) bin/sstrip
+all: $(DIRS) $(TARGETS) bin/sstrip
 	@ls -lh $(TARGETS)
 
 static: LDFLAGS = -static -Wl,--gc-sections
@@ -77,9 +77,6 @@ bin:
 
 gsclu.spec: Makefile gsclu.spec.in
 	@sed -e "s/@VERSION@/$(VERSION)/" gsclu.spec.in > gsclu.spec
-
-config.h: configure
-	sh configure
 
 $(LIBSTR):
 	$(MAKE) -C str
@@ -111,7 +108,7 @@ realclean: clean
 
 dist: gsclu.spec
 	mkdir $(NAME)-$(VERSION)
-	cp --parents Makefile configure str/Makefile CHANGES README*[^~] gsclu.spec $(SOURCES) $(NAME)-$(VERSION)
+	cp --parents Makefile str/Makefile CHANGES README*[^~] gsclu.spec $(SOURCES) $(NAME)-$(VERSION)
 	tar -cjf $(NAME)-$(VERSION).tar.bz2 $(NAME)-$(VERSION)
 	rm -rf $(NAME)-$(VERSION)
 
