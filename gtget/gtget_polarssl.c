@@ -17,7 +17,9 @@
 #include <unistd.h>
 #include <polarssl/ssl.h>
 #include <polarssl/net.h>
-#include <polarssl/havege.h>
+#include <polarssl/entropy.h>
+#include <polarssl/ctr_drbg.h>
+#include <polarssl/error.h>
 #include "strbuf.h"
 #include "gtget.h"
 
@@ -26,11 +28,19 @@ extern int timedout;
 typedef struct sslparam_t {
   ssl_context ssl;
   ssl_session ssn;
-  havege_state hs;
   x509_cert cacert;
   x509_cert clicert;
   rsa_context rsa;
+  entropy_context entropy;
+  ctr_drbg_context ctr_drbg;
 } sslparam_t;
+
+static void print_ssl_error(int e)
+{
+  char buf[256];
+  error_strerror(e, buf, sizeof(buf));
+  write2f("%s\n", buf);
+}
 
 ssize_t gtget_ssl_write(connection_t * c, char *buf, size_t n)
 {
@@ -106,6 +116,7 @@ void gtget_ssl_init(connection_t * conn)
 {
   char *clientcert = NULL;
   char *clientkey = NULL;
+  const char *pers = "gtget";
   sslparam_t *ssl = calloc(1, sizeof(sslparam_t));
   
   if (!(conn->flags & GTGET_FLAG_INSECURE)) {
@@ -137,7 +148,11 @@ void gtget_ssl_init(connection_t * conn)
     write2f("using client key:  %s\n", clientkey);
   }
 
-  havege_init(&ssl->hs);
+  entropy_init(&ssl->entropy);
+  if (0 != (ctr_drbg_init(&ssl->ctr_drbg, entropy_func, &ssl->entropy,
+	  (const unsigned char *)pers, strlen(pers))))
+    die(conn, "Seeding the random number generator failed", NULL);
+
 
   if (ssl_init(&ssl->ssl))
     die(conn, "error initializing SSL", NULL);
@@ -151,7 +166,7 @@ void gtget_ssl_init(connection_t * conn)
   ssl_set_verify(&ssl->ssl, verify_cb, conn);
   ssl_set_ciphersuites(&ssl->ssl, ssl_default_ciphersuites);
   ssl_set_session(&ssl->ssl, &ssl->ssn);
-  ssl_set_rng(&ssl->ssl, havege_random, &ssl->hs);
+  ssl_set_rng(&ssl->ssl, ctr_drbg_random, &ssl->ctr_drbg);
   conn->ssl = ssl;
 }
 
@@ -172,8 +187,10 @@ void gtget_ssl_connect(connection_t * conn)
   }
 
   if (ret) {
-    if (conn->verbosity >= 1)
-      write2f("ssl_handshake() returned %d\n", -ret);
+    if (conn->verbosity >= 1) {
+      write2f("ssl_handshake() @ %d returned %d, ", conn->sockfd, -ret);
+      print_ssl_error(ret);
+    }
     die(conn, "ssl_handshake() failed", NULL);
   }
 
