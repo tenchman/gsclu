@@ -68,7 +68,7 @@ io_ctx_t *tio_init(void)
   } else {
     io->recv = tio_std_recv;
     io->send = tio_std_send;
-    io->ibuf.pos = io->ibuf.start = io->ibuf.buf;
+    io->ibuf.pos = io->ibuf.buf;
   }
   return io;
 }
@@ -135,7 +135,7 @@ int tio_tls_handshake(io_ctx_t *ctx)
     if ((ret & BADCERT_NOT_TRUSTED) != 0)
       fprintf(stderr, " self-signed or not signed by a trusted CA\n");
   }
-  
+
   ctx->recv = tio_tls_recv;
   ctx->send = tio_tls_send;
   return 0;
@@ -176,7 +176,7 @@ int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server)
 char *tio_gets(io_ctx_t *io, char *buf, size_t len)
 {
   char *lbr, *ret = NULL;
-  size_t n;
+  size_t n, rem;
 
   while (1) {
     if (NULL != (lbr = strchr(io->ibuf.pos, '\n'))) {
@@ -189,8 +189,15 @@ char *tio_gets(io_ctx_t *io, char *buf, size_t len)
 	buf[n] = '\0';
 	ret = buf;
       }
-      break;  
-    } else if (-1 == io->recv(io, io->ibuf.buf, sizeof(io->ibuf.buf))) {
+      break;
+    } else if (0 < (rem = io->ibuf.total - (io->ibuf.pos - io->ibuf.buf))) {
+      memmove(io->ibuf.buf, io->ibuf.pos, rem);
+      if (-1 == (int)(n = io->recv(io, io->ibuf.buf + rem, sizeof(io->ibuf.buf) - rem))) {
+	break;
+      }
+      io->ibuf.pos = io->ibuf.buf;
+      io->ibuf.total = rem + n;
+    } else if (-1 == (int)(io->ibuf.total = io->recv(io, io->ibuf.buf, sizeof(io->ibuf.buf)))) {
       break;
     }
   }

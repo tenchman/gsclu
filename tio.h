@@ -7,8 +7,8 @@ typedef struct ssl_ctx_t ssl_ctx_t;
 
 typedef struct tio_buf_s {
   char buf[8100];
-  char *start;
   char *pos;
+  size_t total;
 } tio_buf_t;
 
 /* io_ctx_t */
