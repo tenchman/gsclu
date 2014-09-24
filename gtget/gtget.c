@@ -202,19 +202,20 @@ static void setup_proxy(connection_t * conn)
 }
 
 REGPARM(2)
-static const char* addrstr(char *dst, int af, struct sockaddr *addr)
+static const char* addrstr(char *dst, int len, struct addrinfo *rp)
 {
   union {
     struct sockaddr_in *in;
     struct sockaddr_in6 *in6;
     struct sockaddr *a;
-  } ptr = { .a = addr };
+  } ptr = { .a = rp->ai_addr };
   const char *ret = NULL;
 
-  if (af == AF_INET6) {
-    ret = inet_ntop(af, &ptr.in6->sin6_addr, dst, INET6_ADDRSTRLEN);
+  memset(dst, 0, len);
+  if (rp->ai_family == AF_INET6) {
+    ret = inet_ntop(rp->ai_family, &ptr.in6->sin6_addr, dst, INET6_ADDRSTRLEN);
   } else {
-    ret = inet_ntop(af, &ptr.in->sin_addr, dst, INET6_ADDRSTRLEN);
+    ret = inet_ntop(rp->ai_family, &ptr.in->sin_addr, dst, INET6_ADDRSTRLEN);
   }
   /* Work around a bug in dietlibc on 64bit systems */
   return ret ? dst : NULL;
@@ -258,7 +259,7 @@ static void do_connect(connection_t * conn)
   timer_start(&conn->connect_timer);
   for (rp = result; rp != NULL; rp = rp->ai_next) {
     if (conn->verbosity)
-      write2f(" => trying %s: ", addrstr(__addrstr, rp->ai_family, rp->ai_addr));
+      write2f(" => trying %s: ", addrstr(__addrstr, sizeof(__addrstr), rp));
 
     if ((sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol)) < 0)
       continue;
@@ -282,7 +283,7 @@ static void do_connect(connection_t * conn)
 
   if (conn->verbosity)
     write2f(" => connected to %s:%s <%s>\n", host, service,
-	addrstr(__addrstr, rp->ai_family, rp->ai_addr));
+	addrstr(__addrstr, sizeof(__addrstr), rp));
 
   freeaddrinfo(result);
 
