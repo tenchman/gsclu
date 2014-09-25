@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #ifdef __dietlibc__
 #include <strings.h>  /* strcasecmp */
 #endif
@@ -346,12 +347,54 @@ void sv_shutdown(sievectx_t *ctx)
   tio_shutdown(ctx->io);
 }
 
+static void process_entry(char *s, sievectx_t *ctx)
+{
+  char *key = NULL, *value = NULL;
+  int n;
+  if (2 == (n = sscanf(s, "%ms %ms", &key, &value))) {
+    if (strequal("server", key)) {
+      ctx->server = value;
+    } else if (strequal("port", key)) {
+      ctx->port = strtol(value, NULL, 10);
+      free(value);
+    } else if (strequal("user", key)) {
+      ctx->user = value;
+    } else if (strequal("account", key)) {
+      ctx->account = value;
+    } else if (strequal("password", key)) {
+      ctx->pass = value;
+    }
+  }
+  free(key);
+}
+
+static int readconfig(char *path, sievectx_t *ctx)
+{
+  FILE *fp;
+  char buf[BUFSIZ];
+  if (0 < (fp = fopen(path, "r"))) {
+    fprintf(stderr, "using %s\n", path);
+    while (fgets(buf, sizeof(buf), fp)) {
+      process_entry(buf, ctx);
+    }
+    fclose(fp);
+  }
+  return -1;
+}
+
 void sv_init(sievectx_t *ctx)
 {
+  char *home, path[PATH_MAX];
   memset(ctx, 0, sizeof(sievectx_t));
   ctx->timeout = 10;
   ctx->port = 2000;
   ctx->io = tio_init();
+  if (NULL != (home = getenv("HOME"))) {
+    snprintf(path, PATH_MAX, "%s/.config/sievectl/sievectl.conf", home);
+    if (0 == readconfig(path, ctx))
+      return;
+  }
+  readconfig("/etc/sievectl/sievectl.conf", ctx);
 }
 
 void sv_usage(int status, char *message)
@@ -501,7 +544,7 @@ int main(int argc, char **argv)
       sv_do_script(&ctx, "CHECKSCRIPT");
       break;
     default:
-      fputs("Hier stümmt doch wat nich. Dit Kommando kenn ick nich!", stderr);
+      fputs("unknown command", stderr);
   }
 
   sv_shutdown(&ctx);
