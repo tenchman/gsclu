@@ -350,11 +350,30 @@ void sv_shutdown(sievectx_t *ctx)
   tio_shutdown(ctx->io);
 }
 
+static int key_value(char *s, char **key, char **value)
+{
+  int ret = 0;
+  if ('#' == s[0]) {
+    /* comment */
+  } else if (NULL == (s = strtok(s, " \t\r\n"))) {
+    /* no key */
+  } else if (NULL == (*key = strdup(s))) {
+    /* OOM */
+  } else if (NULL == (s = strtok(NULL, " \t\r\n"))) {
+    ret = 1;
+  } else if (NULL == (*value = strdup(s))) {
+    /* OOM */
+  } else {
+    ret = 2;
+  }
+  return ret;
+}
+
 static void process_entry(char *s, sievectx_t *ctx)
 {
   char *key = NULL, *value = NULL;
   int n;
-  if (2 == (n = sscanf(s, "%ms %ms", &key, &value))) {
+  if (2 == (n = key_value(s, &key, &value))) {
     if (strequal("server", key)) {
       ctx->server = value;
     } else if (strequal("port", key)) {
