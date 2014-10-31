@@ -127,13 +127,13 @@ int tio_tls_handshake(io_ctx_t *ctx)
   if (0 != (ret = ssl_get_verify_result(&sslctx->ssl))) {
     fprintf(stderr, "Verifying peer X.509 certificate failed.\n" );
     if ((ret & BADCERT_EXPIRED) != 0)
-      fprintf(stderr, " server certificate has expired\n");
+      fprintf(stderr, " * server certificate has expired\n");
     if ((ret & BADCERT_REVOKED) != 0)
-      fprintf(stderr, " server certificate has been revoked\n");
+      fprintf(stderr, " * server certificate has been revoked\n");
     if ((ret & BADCERT_CN_MISMATCH) != 0)
-      fprintf(stderr, " CN mismatch\n");
+      fprintf(stderr, " * CN mismatch\n");
     if ((ret & BADCERT_NOT_TRUSTED) != 0)
-      fprintf(stderr, " self-signed or not signed by a trusted CA\n");
+      fprintf(stderr, " * self-signed or not signed by a trusted CA\n");
   }
 
   ctx->recv = tio_tls_recv;
@@ -141,7 +141,7 @@ int tio_tls_handshake(io_ctx_t *ctx)
   return 0;
 }
 
-int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server)
+int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server, int verify)
 {
   _ssl_ctx_t *ssl;
   int ret = -1;
@@ -156,12 +156,22 @@ int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server)
   if (0 != (ret = ctr_drbg_init(&ssl->ctr_drbg, entropy_func, &ssl->entropy, pers, strlen((char *)pers)))) {
     fprintf(stderr, "Seeding the random number generator failed\n");
   } else if (0 > (ret = x509parse_crtfile(&ssl->cacert, CAFILE))) {
-    // fprintf(stderr, "Loading the CA root certificate failed: %s\n", sv_tls_error(ret));
+    fprintf(stderr, "Loading the CA root certificate failed: %s\n", tio_tls_error(ret));
   } else if (0 != (ret = ssl_init(&ssl->ssl))) {
     /* */
   } else {
     ssl_set_endpoint(&ssl->ssl, SSL_IS_CLIENT);
-    ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
+    switch (verify) {
+      case 0:
+	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_NONE);
+	break;
+      case 1:
+	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
+	break;
+      default:
+	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_REQUIRED);
+	break;
+    }
     ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, server);
 
     ssl_set_rng(&ssl->ssl, ctr_drbg_random, &ssl->ctr_drbg );

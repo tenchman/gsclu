@@ -27,6 +27,6 @@ int tio_recv(io_ctx_t *io, char *buf, size_t len);
 int tio_send(io_ctx_t *io, char *buf, size_t len);
 char *tio_gets(io_ctx_t *io, char *buf, size_t len);
 int tio_tls_handshake(io_ctx_t *io);
-int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server);
+int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server, int verify);
 
 #endif

@@ -59,6 +59,7 @@ struct sv_ctx {
     unsigned dostarttls:1;
     unsigned starttls:1;
     unsigned unauthenticate:1;
+    unsigned verify:2;
   } flags;
 };
 
@@ -285,7 +286,7 @@ static int sv_starttls(sievectx_t *ctx)
   } else if (-1 == (ret = sv_expect(ctx, "OK\r\n"))) {
     fprintf(stderr, "unexpected answer after STARTTLS: %s\n", iobuf);
   } else if (-1 == (ret = tio_tls_handshake(ctx->io))) {
-    fprintf(stderr, "SSL/TLS handshake failed\n");
+    /* errors reported by tio_tls_handshake() */
   } else {
     ret = 0;
   }
@@ -298,15 +299,17 @@ static int sv_connect(sievectx_t *ctx)
   const unsigned char *pers = (const unsigned char *) "sievectl";
 
   if (-1 == net_connect(&ctx->io->fd, ctx->server, ctx->port)) {
-    fprintf(stderr, "can't connect to server @ %s/%d\n",  ctx->server, ctx->port);
+    fprintf(stderr, "can't connect to server %s:%d\n",  ctx->server, ctx->port);
   } else if (-1 == sv_parse_greeting(ctx)) {
     fprintf(stderr, "failed to read or parse server greeting\n");
   } else if (0 == ctx->flags.starttls) {
     ret = 0;
-  } else if (-1 == tio_tls_init(ctx->io, pers, ctx->server)) {
+  } else if (-1 == tio_tls_init(ctx->io, pers, ctx->server, ctx->flags.verify)) {
     fprintf(stderr, "failed to initialize TLS\n");
   } else if (-1 == sv_starttls(ctx)) {
     fprintf(stderr, "failed to start TLS session\n");
+  } else if (-1 == sv_parse_greeting(ctx)) {
+    fprintf(stderr, "failed to read or parse server greeting after STARTTLS\n");
   } else {
     ret = 0;
   }
@@ -363,6 +366,12 @@ static void process_entry(char *s, sievectx_t *ctx)
       ctx->account = value;
     } else if (strequal("password", key)) {
       ctx->pass = value;
+    } else if (strequal("starttls", key)) {
+      ctx->flags.dostarttls = strtol(value, NULL, 10);
+      free(value);
+    } else if (strequal("tlsverify", key)) {
+      ctx->flags.verify = strtol(value, NULL, 10);
+      free(value);
     }
   }
   free(key);
@@ -411,6 +420,7 @@ Options:\n\
   -w <pass>     passWord\n\
   -n <name>     local fileName (get, put, check)\n\
   -t            use STARTTLS if supported\n\
+  -m            TLS verify method (0 = none, 1 = optional, 2 = required)\n\
   -v            Display the version number.\n\n\
 Commands:\n\
   get           get script from server\n\
@@ -453,7 +463,7 @@ int main(int argc, char **argv)
 
   sv_init(&ctx);
 
-  while (EOF != (optch = getopt(argc, argv, "a:n:s:p:u:w:vt"))) {
+  while (EOF != (optch = getopt(argc, argv, "a:m:n:s:p:u:w:vt"))) {
     switch (optch) {
       case 'a':
 	ctx.account = optarg;
@@ -475,6 +485,9 @@ int main(int argc, char **argv)
 	break;
       case 't':
 	ctx.flags.dostarttls = 1;
+	break;
+      case 'm':
+	ctx.flags.verify = atoi(optarg);
 	break;
       case 'v':
 	puts("\n sievectl (" VERSION ")\n");
@@ -517,7 +530,7 @@ int main(int argc, char **argv)
     ctx.fd = -1;
 
   if (-1 == sv_connect(&ctx)) {
-    fprintf(stderr, "can't connect\n");
+    fprintf(stderr, "can't connect to %s:%d\n", ctx.server, ctx.port);
   } else if (-1 == sv_authenticate_plain(&ctx)) {
     fprintf(stderr, "authentication failed\n");
   } else switch (ctx.todo) {
