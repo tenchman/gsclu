@@ -29,13 +29,20 @@
 #ifdef P_strbuf_realloc
 size_t strbuf_realloc(strbuf_t * strbuf, size_t len)
 {
-  unsigned int l;
-  if (strbuf->s)
+  size_t l;
+  char *tmp;
+
+  if (strbuf->s) {
     l = (strbuf->len + len) | STRBUF_BOUNDS;
-  else
+  } else {
     l = len | STRBUF_BOUNDS;
-  char *tmp = realloc(strbuf->s, l);
-  if (tmp) {
+  }
+
+  if (l < len) {
+    /* overflow */
+  } else if (NULL == (tmp = realloc(strbuf->s, l))) {
+    /* OOM */
+  } else {
     strbuf->s = tmp;
     strbuf->total = l;
     return 0;
