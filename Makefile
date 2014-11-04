@@ -81,6 +81,9 @@ gsclu.spec: Makefile gsclu.spec.in
 $(LIBSTR):
 	$(MAKE) -C str
 
+$(LIBTIO):
+	$(MAKE) -C tio
+
 bin/%: %.c
 	$(THELD) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
@@ -90,7 +93,7 @@ bin/ps: .objs/read_write.o .objs/ps.o
 bin/tunctl: .objs/tunctl.o
 	$(THECC) $(LDFLAGS) -o $@ $^
 
-bin/sievectl: .objs/sievectl.o .objs/tio.o
+bin/sievectl: .objs/sievectl.o $(LIBTIO)
 	$(THELD) $(LDFLAGS) -o $@ $^ $(LIBSSL) $(LIBRESOLV)
 
 bin/gtget: $(GTGETOBJ) $(LIBSTR)

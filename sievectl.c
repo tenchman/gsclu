@@ -20,7 +20,7 @@
 #include <polarssl/havege.h>
 #include <polarssl/error.h>
 #include <polarssl/net.h>
-#include "tio.h"
+#include "tio/tio.h"
 
 #define PACKAGE "sievectl"
 #define strequal(a,b) !strcmp(a,b)
