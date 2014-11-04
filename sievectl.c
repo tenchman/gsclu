@@ -87,7 +87,7 @@ static void die(sievectx_t *ctx, const char *format, ...)
 }
 
 /* Static Buffer! I know, I'm a bad guy.*/
-int sv_parse_greeting(sievectx_t *ctx)
+static int sv_parse_greeting(sievectx_t *ctx)
 {
   int ret = -1;
   char *lbr, *pos = iobuf;
