@@ -295,11 +295,11 @@ static int sv_starttls(sievectx_t *ctx)
 
 static int sv_connect(sievectx_t *ctx)
 {
-  int ret = -1;
+  int ret = -1, r;
   const unsigned char *pers = (const unsigned char *) "sievectl";
 
-  if (-1 == net_connect(&ctx->io->fd, ctx->server, ctx->port)) {
-    fprintf(stderr, "can't connect to server %s:%d\n",  ctx->server, ctx->port);
+  if (0 != (r = net_connect(&ctx->io->fd, ctx->server, ctx->port))) {
+    fprintf(stderr, "can't connect to server %s:%d (-0x%04x)\n",  ctx->server, ctx->port, -r);
   } else if (-1 == sv_parse_greeting(ctx)) {
     fprintf(stderr, "failed to read or parse server greeting\n");
   } else if (0 == ctx->flags.starttls) {
