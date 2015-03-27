@@ -18,8 +18,8 @@ typedef struct {
   ssl_context ssl;
   entropy_context entropy;
   ctr_drbg_context ctr_drbg;
-  x509_cert cacert;
-  x509_cert clicert;
+  x509_crt cacert;
+  x509_crt clicert;
   rsa_context rsa;
 } _ssl_ctx_t;
 
@@ -83,8 +83,8 @@ void tio_shutdown(io_ctx_t *io)
 
   /* cleanup all SSL related stuff */
   if (sslctx) {
-    x509_free(&sslctx->cacert);
-    x509_free(&sslctx->clicert);
+    x509_crt_free(&sslctx->cacert);
+    x509_crt_free(&sslctx->clicert);
     rsa_free(&sslctx->rsa);
     ssl_free(&sslctx->ssl);
     free(sslctx);
@@ -155,7 +155,7 @@ int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server, i
 
   if (0 != (ret = ctr_drbg_init(&ssl->ctr_drbg, entropy_func, &ssl->entropy, pers, strlen((char *)pers)))) {
     fprintf(stderr, "Seeding the random number generator failed\n");
-  } else if (0 > (ret = x509parse_crtfile(&ssl->cacert, CAFILE))) {
+  } else if (0 > (ret = x509_crt_parse_file(&ssl->cacert, CAFILE))) {
     fprintf(stderr, "Loading the CA root certificate failed: %s\n", tio_tls_error(ret));
   } else if (0 != (ret = ssl_init(&ssl->ssl))) {
     /* */

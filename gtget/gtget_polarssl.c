@@ -28,9 +28,8 @@ extern int timedout;
 typedef struct sslparam_t {
   ssl_context ssl;
   ssl_session ssn;
-  x509_cert cacert;
-  x509_cert clicert;
-  rsa_context rsa;
+  x509_crt cacert;
+  x509_crt clicert;
   entropy_context entropy;
   ctr_drbg_context ctr_drbg;
 } sslparam_t;
@@ -93,7 +92,7 @@ ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n)
   return r;
 }
 
-static int verify_cb(void *arg, x509_cert * crt, int depth, int *flags)
+static int verify_cb(void *arg, x509_crt * crt, int depth, int *flags)
 {
   connection_t *conn = (connection_t *) arg;
   int cnlen = strlen(conn->remote->host);
@@ -130,7 +129,7 @@ void gtget_ssl_init(connection_t * conn)
       servercert = tryopen("cacerts.pem");
     if (!(servercert))
       die(conn, "can't open cacert", NULL);
-    if (x509parse_crtfile(&ssl->cacert, servercert))
+    if (x509_crt_parse_file(&ssl->cacert, servercert))
       die(conn, "error reading cacert", servercert);
   }
 
@@ -139,10 +138,8 @@ void gtget_ssl_init(connection_t * conn)
     if (!(clientkey = tryopen_alt(conn, conn->ckFile, "clientkey.pem")))
       clientkey = clientcert;
 
-    if (x509parse_crtfile(&ssl->clicert, clientcert)) {
+    if (x509_crt_parse_file(&ssl->clicert, clientcert)) {
       die(conn, "error reading client certificate", clientcert);
-      if (clientkey && x509parse_keyfile(&ssl->rsa, clientkey, NULL))
-	die(conn, "error reading client key", clientkey);
     }
     write2f("using client cert: %s\n", clientcert);
     write2f("using client key:  %s\n", clientkey);
@@ -164,7 +161,7 @@ void gtget_ssl_init(connection_t * conn)
   ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, conn->remote->host);
   ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
   ssl_set_verify(&ssl->ssl, verify_cb, conn);
-  ssl_set_ciphersuites(&ssl->ssl, ssl_default_ciphersuites);
+  ssl_set_ciphersuites(&ssl->ssl, ssl_list_ciphersuites());
   ssl_set_session(&ssl->ssl, &ssl->ssn);
   ssl_set_rng(&ssl->ssl, ctr_drbg_random, &ssl->ctr_drbg);
   conn->ssl = ssl;
