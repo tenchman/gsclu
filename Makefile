@@ -105,6 +105,7 @@ bin/rbld: .objs/rbld.o .objs/mmapfile.o
 clean:
 	rm -rf .objs *.[oa] */*.[oa] core core.* $(TARGETS)
 	$(MAKE) -C str clean
+	$(MAKE) -C tio clean
 
 realclean: clean
 	rm -f *~
