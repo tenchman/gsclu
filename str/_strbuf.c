@@ -6,6 +6,7 @@
  * \brief save string functions
 **/
 
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -331,181 +332,38 @@ void strbuf_nullify(strbuf_t * strbuf)
  * Append a variable number of arguments in a printf like manner to
  * a strbuf structure.
  *
- * Conversion specifiers supported:
- *  %s
- *  %d,%i
- *  %x
- *  %p
- *  %m
- * Flags supported:
- *  # - The value should be converted to an ``alternate form''. For 'x'
- *      conversions, a non-zero result has the string  `0x' prepended to it.
- *  0 - The value should be zero padded.
- *  - - The  converted  value  is  to  be left adjusted on the field boundary.
- *
  * @param strbuf - the strbuf structure to append too
  * @param format - a string describing the format
  * @param ap - a va_list containing the arguments
  *
  * @return The length of characters appended.
 **/
-#define PF_FLAG_HEX         (1<<1)
-#define PF_FLAG_UNSIGNED    (1<<2)
-#define PF_FLAG_DOT         (1<<3)
-#define PF_FLAG_ZERO        (1<<4)
-#define PF_FLAG_ALTERNATE   (1<<5)
-#define PF_FLAG_LEFT        (1<<6)
-
 #ifdef P_strbuf_vappendf
+#include <stdio.h>
 size_t strbuf_vappendf(strbuf_t * strbuf, const char *format, va_list ap)
 {
   size_t len = 0;
-  char *start = (char *) format;
-  char *pos = start;
-  char *tmp;
-  strbuf_t strtmp = STRBUF_ZERO;
+  int r;
+  char *s = NULL;
 
-  while (*format) {
-    if (*format == '%') {
-      int flaglong = 0;
-      int flags = 0;
-      size_t width = 0;
-      size_t preci = 0;
-
-      strtmp.len = 0;
-
-      if (pos != start)
-	len += strbuf_nappends(strbuf, start, pos - start);
-
-    readmore:
-
-      format++;
-      switch (*format) {
-	/* modifiers */
-      case 'l':
-	++flaglong;
-	goto readmore;
-      case '.':
-	flags |= PF_FLAG_DOT;
-	goto readmore;
-      case '#':
-	flags |= PF_FLAG_ALTERNATE;
-	goto readmore;
-      case '-':
-	flags |= PF_FLAG_LEFT;
-	goto readmore;
-	/* integers */
-      case 'p':
-	flags |= PF_FLAG_ALTERNATE;
-	width = 10;
-      case 'x':
-	flags |= PF_FLAG_HEX;	/* fall through */
-      case 'i':
-      case 'd':
-      case 'u':
-	flags |= PF_FLAG_UNSIGNED;
-	{
-	  long long l;
-	  size_t sz;
-	  char *alternate = NULL;
-
-	  switch (flaglong) {
-	  case 0:
-	    l = (long long) va_arg(ap, int);
-	    break;
-	  case 1:
-	    l = (long long) va_arg(ap, long);
-	    break;
-	  default:
-	    l = (long long) va_arg(ap, long long);
-	  }
-
-	  if (flags & PF_FLAG_HEX)
-	    sz = strbuf_appendllx(&strtmp, (unsigned long long) l);
-	  else if (flags & PF_FLAG_UNSIGNED)
-	    sz = strbuf_appendllu(&strtmp, (unsigned long long) l);
-	  else
-	    sz = strbuf_appendll(&strtmp, l);
-
-	  if ((flags & PF_FLAG_HEX) && (flags & PF_FLAG_ALTERNATE)) {
-	    sz += 2;
-	    alternate = "0x";
-	  }
-
-	  if (width <= sz) {
-	    /* all is good, no padding */
-	    strbuf_appends(strbuf, alternate);
-	    strbuf_nappends(strbuf, strtmp.s, strtmp.len);
-	  } else if (flags & PF_FLAG_LEFT) {
-	    /* left aligned */
-	    strbuf_appends(strbuf, alternate);
-	    strbuf_nappends(strbuf, strtmp.s, strtmp.len);
-	    strbuf_appendcn(strbuf, (flags & PF_FLAG_ZERO) ? '0' : ' ',
-			    width - sz);
-	  } else {
-	    /* right aligned */
-	    if (flags & PF_FLAG_ZERO) {
-	      strbuf_appends(strbuf, alternate);
-	      strbuf_appendcn(strbuf, '0', width - sz);
-	    } else {
-	      strbuf_appendcn(strbuf, ' ', width - sz);
-	      strbuf_appends(strbuf, alternate);
-	    }
-	    strbuf_nappends(strbuf, strtmp.s, strtmp.len);
-	  }
-
-	  break;
-	}
-      case 's':
-	{
-	  char *c = va_arg(ap, char *);
-	  if (!c)
-	    c = "(null)";
-	  len += strbuf_appends(strbuf, c);
-	}
-	break;
-      case 'm':
-	len += strbuf_appends(strbuf, strerror(errno));
-	break;
-      case '0':
-	flags |= PF_FLAG_ZERO;
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-	if (flags & PF_FLAG_DOT)
-	  return -1;
-	width = strtoul(format, &tmp, 10);
-	if (*tmp == '.') {
-	  flags |= PF_FLAG_DOT;
-	  preci = strtoul(tmp + 1, &tmp, 10);
-	}
-	format = tmp - 1;
-	goto readmore;
-      default:
-	/* unsupported modifier */
-	break;
-      }
-      ++format;
-      start = pos = (char *) format;
-      continue;
-    }
-    ++pos;
-    ++format;
+  if (-1 != (r = vasprintf(&s, format, ap))) {
+    len = strbuf_nappends(strbuf, s, r);
   }
-
-  if (pos != start)
-    len += strbuf_nappends(strbuf, start, pos - start);
-
   return len;
 }
 #endif
 
+/*! \brief Assign a variable of arguments to a strbuf
+ *
+ * Assign a variable number of arguments in a printf like manner to
+ * a strbuf structure.
+ *
+ * @param strbuf - the strbuf structure to append too
+ * @param format - a string describing the format
+ * @param ... - the arguments to be assigned
+ *
+ * @return The length of characters appended.
+**/
 #ifdef P_strbuf_putf
 size_t strbuf_putf(strbuf_t * strbuf, const char *format, ...)
 {
