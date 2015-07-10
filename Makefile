@@ -25,7 +25,7 @@ CFLAGS   += -ffunction-sections -fdata-sections
 CFLAGS   += -DVERSION=\"$(NAME)-$(VERSION)\" -g
 CFLAGS   += -Igtget -Istr -fno-inline 
 
-LIBSSL  = -lpolarssl
+LIBSSL  = -lmbedtls
 
 LIBSTR    = str/libstr.a
 LIBTIO    = tio/libtio.a
