@@ -89,6 +89,8 @@ static int readprocstring(char *s, char **str, int isname)
     memcpy(*str, start, pos - start);
     (*str)[pos - start] = '\0';
   }
+  while (!isspace(*pos))
+    ++pos;
   return pos - s;
 }
 
