@@ -39,8 +39,8 @@ typedef struct ps_dev_t {
 } ps_dev_t;
 
 ps_dev_t *devlist;
-int devcnt;
-int hertz = 0;
+static int devcnt;
+static int hertz = 0;
 
 typedef struct proc_t proc_t;
 struct proc_t {
