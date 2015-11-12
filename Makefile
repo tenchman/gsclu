@@ -25,7 +25,7 @@ CFLAGS   += -ffunction-sections -fdata-sections
 CFLAGS   += -DVERSION=\"$(NAME)-$(VERSION)\" -g
 CFLAGS   += -Igtget -Istr -fno-inline 
 
-LIBSSL  = -lmbedtls
+LIBSSL  = -lmbedtls -lmbedx509 -lmbedcrypto
 
 LIBSTR    = str/libstr.a
 LIBTIO    = tio/libtio.a
@@ -35,7 +35,7 @@ STRSRC    = $(wildcard str/*.c)
 GTGETSRC  = gtget/check_cn.c gtget/gtget.c gtget/gtget_config.c
 GTGETSRC += gtget/gtget_io.c gtget/gtget_utils.c gtget/timer_start.c
 GTGETSRC += gtget/timer_stop.c
-GTGETSRC += gtget/gtget_polarssl.c
+GTGETSRC += gtget/gtget_mbedtls.c
 GTGETOBJ  = $(patsubst %.c,%.o,$(GTGETSRC))
 
 SOURCES   = read_write.c read_write.h ps.c mimencode.c attributes.h mmapfile.c mmapfile.h
