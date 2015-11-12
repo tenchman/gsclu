@@ -28,6 +28,8 @@ Nothing really special here. There are billions of better implementations. Excep
       -u <user>     Username
       -w <pass>     passWord
       -n <name>     local fileName (get, put, check)
+      -t            use STARTTLS if supported
+      -m            TLS verify method (0 = none, 1 = optional, 2 = required)
       -v            Display the version number.
 
     Commands:
