@@ -15,11 +15,11 @@
 #include <ctype.h>
 #include <poll.h>
 #include <sys/socket.h>
-#include <polarssl/ssl.h>
-#include <polarssl/base64.h>
-#include <polarssl/havege.h>
-#include <polarssl/error.h>
-#include <polarssl/net.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/base64.h>
+#include <mbedtls/havege.h>
+#include <mbedtls/error.h>
+#include <mbedtls/net.h>
 #include "tio/tio.h"
 
 #define PACKAGE "sievectl"
@@ -151,7 +151,7 @@ static int sv_authenticate_plain(sievectx_t *ctx)
   memcpy(pos, ctx->pass, n);
   pos += n;
 
-  base64_encode((unsigned char *)iobuf + len, &dlen, buf, pos - buf);
+  mbedtls_base64_encode((unsigned char *)iobuf + len, sizeof(iobuf) - len, &dlen, buf, pos - buf);
   len += dlen;
   len += snprintf(iobuf + len, sizeof(iobuf) - len, "\"\r\n");
 
@@ -298,7 +298,7 @@ static int sv_connect(sievectx_t *ctx)
   int ret = -1, r;
   const unsigned char *pers = (const unsigned char *) "sievectl";
 
-  if (0 != (r = net_connect(&ctx->io->fd, ctx->server, ctx->port))) {
+  if (0 != (r = tio_connect(&ctx->io->fd, ctx->server, ctx->port))) {
     fprintf(stderr, "can't connect to server %s:%d (-0x%04x)\n",  ctx->server, ctx->port, -r);
   } else if (-1 == sv_parse_greeting(ctx)) {
     fprintf(stderr, "failed to read or parse server greeting\n");
