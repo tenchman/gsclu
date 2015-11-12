@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <polarssl/ssl.h>
-#include <polarssl/base64.h>
-#include <polarssl/havege.h>
-#include <polarssl/error.h>
-#include <polarssl/net.h>
-#include "polarssl/entropy.h"
-#include "polarssl/ctr_drbg.h"
+#include <mbedtls/ssl.h>
+#include <mbedtls/base64.h>
+#include <mbedtls/havege.h>
+#include <mbedtls/error.h>
+#include <mbedtls/net.h>
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
 #include "tio.h"
 
 #define CAFILE  "/etc/ssl/certs/ca-bundle.crt"
@@ -16,12 +16,13 @@ static char tio_buf[1024];
 
 /* ssl data */
 typedef struct {
-  ssl_context ssl;
-  entropy_context entropy;
-  ctr_drbg_context ctr_drbg;
-  x509_crt cacert;
-  x509_crt clicert;
-  rsa_context rsa;
+  mbedtls_ssl_context ssl;
+  mbedtls_entropy_context entropy;
+  mbedtls_ssl_config conf;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  mbedtls_x509_crt cacert;
+  mbedtls_x509_crt clicert;
+  mbedtls_rsa_context rsa;
 } _ssl_ctx_t;
 
 
@@ -39,8 +40,8 @@ static ssize_t tio_tls_recv(io_ctx_t *ctx, char *buf, size_t len)
 {
   int ret;
   _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
-  while (0 >= (ret = ssl_read(&sslctx->ssl, (unsigned char *)buf, len))) {
-    if (ret != POLARSSL_ERR_NET_WANT_READ && ret != POLARSSL_ERR_NET_WANT_WRITE) {
+  while (0 >= (ret = mbedtls_ssl_read(&sslctx->ssl, (unsigned char *)buf, len))) {
+    if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
       ret = -1;
       break;
     }
@@ -52,8 +53,8 @@ static ssize_t tio_tls_send(io_ctx_t *ctx, char *buf, size_t len)
 {
   int ret = 0;
   _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
-  while (len && 0 >= (ret = ssl_write(&sslctx->ssl, (const unsigned char *)buf, len))) {
-    if (ret != POLARSSL_ERR_NET_WANT_READ && ret != POLARSSL_ERR_NET_WANT_WRITE) {
+  while (len && 0 >= (ret = mbedtls_ssl_write(&sslctx->ssl, (const unsigned char *)buf, len))) {
+    if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
       ret = -1;
       break;
     }
@@ -79,15 +80,15 @@ void tio_shutdown(io_ctx_t *io)
   _ssl_ctx_t *sslctx = (_ssl_ctx_t *)io->ssl_ctx;
   if (io->fd > 0) {
     shutdown(io->fd, SHUT_RDWR);
-    net_close(io->fd);
   }
 
   /* cleanup all SSL related stuff */
   if (sslctx) {
-    x509_crt_free(&sslctx->cacert);
-    x509_crt_free(&sslctx->clicert);
-    rsa_free(&sslctx->rsa);
-    ssl_free(&sslctx->ssl);
+    mbedtls_x509_crt_free(&sslctx->cacert);
+    mbedtls_x509_crt_free(&sslctx->clicert);
+    mbedtls_rsa_free(&sslctx->rsa);
+    mbedtls_ssl_free(&sslctx->ssl);
+    mbedtls_entropy_free(&sslctx->entropy);
     free(sslctx);
   }
 
@@ -107,7 +108,7 @@ int tio_send(io_ctx_t *io, char *buf, size_t len)
 static char *tio_tls_error(int ret)
 {
   memset(tio_buf, 0, sizeof(tio_buf));
-  error_strerror(ret, (char *) tio_buf, sizeof(tio_buf));
+  mbedtls_strerror(ret, (char *) tio_buf, sizeof(tio_buf));
   return tio_buf;
 }
 
@@ -116,30 +117,51 @@ int tio_tls_handshake(io_ctx_t *ctx)
   int ret;
   _ssl_ctx_t *sslctx = (_ssl_ctx_t *)ctx->ssl_ctx;
 
-  while (0 != (ret = ssl_handshake(&sslctx->ssl)))
+  while (0 != (ret = mbedtls_ssl_handshake(&sslctx->ssl)))
   {
-    if (POLARSSL_ERR_NET_WANT_READ != ret && POLARSSL_ERR_NET_WANT_WRITE != ret)
+    if (MBEDTLS_ERR_SSL_WANT_READ != ret && MBEDTLS_ERR_SSL_WANT_WRITE != ret)
     {
       fprintf(stderr, "SSL/TLS handshake failed! %s\n", tio_tls_error(ret));
       return -1;
     }
   }
 
-  if (0 != (ret = ssl_get_verify_result(&sslctx->ssl))) {
+  if (0 != (ret = mbedtls_ssl_get_verify_result(&sslctx->ssl))) {
     fprintf(stderr, "Verifying peer X.509 certificate failed.\n" );
-    if ((ret & BADCERT_EXPIRED) != 0)
+    if ((ret & MBEDTLS_X509_BADCERT_EXPIRED) != 0)
       fprintf(stderr, " * server certificate has expired\n");
-    if ((ret & BADCERT_REVOKED) != 0)
+    if ((ret & MBEDTLS_X509_BADCERT_REVOKED) != 0)
       fprintf(stderr, " * server certificate has been revoked\n");
-    if ((ret & BADCERT_CN_MISMATCH) != 0)
+    if ((ret & MBEDTLS_X509_BADCERT_CN_MISMATCH) != 0)
       fprintf(stderr, " * CN mismatch\n");
-    if ((ret & BADCERT_NOT_TRUSTED) != 0)
+    if ((ret & MBEDTLS_X509_BADCERT_NOT_TRUSTED) != 0)
       fprintf(stderr, " * self-signed or not signed by a trusted CA\n");
   }
 
   ctx->recv = tio_tls_recv;
   ctx->send = tio_tls_send;
   return 0;
+}
+
+static void tio_tls_config(_ssl_ctx_t *ssl, int verify)
+{
+
+  mbedtls_ssl_config_init(&ssl->conf);
+  mbedtls_ssl_config_defaults(&ssl->conf,
+      MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
+  switch (verify) {
+    case 0:
+      mbedtls_ssl_conf_authmode(&ssl->conf, MBEDTLS_SSL_VERIFY_NONE);
+      break;
+    case 1:
+      mbedtls_ssl_conf_authmode(&ssl->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+      break;
+    default:
+      mbedtls_ssl_conf_authmode(&ssl->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+      break;
+  }
+  mbedtls_ssl_conf_ca_chain(&ssl->conf, &ssl->cacert, NULL);
+  mbedtls_ssl_conf_rng(&ssl->conf, mbedtls_ctr_drbg_random, &ssl->ctr_drbg);
 }
 
 int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server, int verify)
@@ -152,33 +174,18 @@ int tio_tls_init(io_ctx_t *ctx, const unsigned char *pers, const char *server, i
     return -1;
   }
 
-  entropy_init(&ssl->entropy);
-
-  if (0 != (ret = ctr_drbg_init(&ssl->ctr_drbg, entropy_func, &ssl->entropy, pers, strlen((char *)pers)))) {
-    fprintf(stderr, "Seeding the random number generator failed\n");
-  } else if (0 > (ret = x509_crt_parse_file(&ssl->cacert, CAFILE))) {
+  mbedtls_entropy_init(&ssl->entropy);
+  mbedtls_ssl_init(&ssl->ssl);
+  tio_tls_config(ssl, verify);
+  if (0 != mbedtls_ctr_drbg_seed(&ssl->ctr_drbg, mbedtls_entropy_func, &ssl->entropy, pers, strlen((char *)pers))) {
+    fprintf(stderr, "Seeding the random number generator failed");
+  } else if (0 > (ret = mbedtls_x509_crt_parse_file(&ssl->cacert, CAFILE))) {
     fprintf(stderr, "Loading the CA root certificate failed: %s\n", tio_tls_error(ret));
-  } else if (0 != (ret = ssl_init(&ssl->ssl))) {
-    /* */
+  } else if (0 > (ret = mbedtls_ssl_setup(&ssl->ssl, &ssl->conf))) {
+    fprintf(stderr, "Set up the SSL context failed: %s\n", tio_tls_error(ret));
   } else {
-    ssl_set_endpoint(&ssl->ssl, SSL_IS_CLIENT);
-    switch (verify) {
-      case 0:
-	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_NONE);
-	break;
-      case 1:
-	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
-	break;
-      default:
-	ssl_set_authmode(&ssl->ssl, SSL_VERIFY_REQUIRED);
-	break;
-    }
-    ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, server);
-
-    ssl_set_rng(&ssl->ssl, ctr_drbg_random, &ssl->ctr_drbg );
-    ssl_set_bio(&ssl->ssl, net_recv, &ctx->fd, net_send, &ctx->fd);
-    ssl_set_hostname(&ssl->ssl, server);
-
+    mbedtls_ssl_set_bio(&ssl->ssl, &ctx->fd, mbedtls_net_send, mbedtls_net_recv, NULL );
+    mbedtls_ssl_set_hostname(&ssl->ssl, server);
     ctx->ssl_ctx = (ssl_ctx_t *)ssl;
   }
   return ret ? -1 : 0;
@@ -212,5 +219,15 @@ char *tio_gets(io_ctx_t *io, char *buf, size_t len)
       break;
     }
   }
+  return ret;
+}
+int tio_connect(int *fd, const char *server, int port)
+{
+  int ret = -1;
+  char sport[16];
+  snprintf(sport, sizeof(sport), "%d", port);
+  mbedtls_net_context ctx = {};
+  if (0 == (ret = mbedtls_net_connect(&ctx, server, sport, MBEDTLS_NET_PROTO_TCP)))
+    *fd = ctx.fd;
   return ret;
 }
