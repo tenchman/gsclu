@@ -2,7 +2,7 @@
 
 # Gernots Small Command Line Utils
 
-Nothing really special here. Except *sievectl* maybe.
+Nothing really special here. There are billions of better implementations. Except *sievectl* maybe.
 
 ### Home brewed software 
 
@@ -37,6 +37,20 @@ Nothing really special here. Except *sievectl* maybe.
       ls            list the scripts on the server
       rm            remove script from server
       set           set a script active
+
+### Config files:
+
+* ~/.config/sievectl/sievectl.conf
+* /etc/sievectl/sievectl.conf
+
+### Fileformat:
+
+      server    bla.fasel.de
+      port      2000
+      account   someuser@somedomain.de
+      password  XXXXXX
+      starttls  1
+      tlsverify 1
 
 ## Gtget
 
