@@ -397,9 +397,9 @@ static int read_answer(connection_t * conn)
 {
   char buf[BUFSIZE + 1];
   int len, eoh = 0, result = 0;
-  md5_context ctx;
+  mbedtls_md5_context ctx;
 
-  md5_starts(&ctx);
+  mbedtls_md5_starts(&ctx);
 
   /* seek to the beginning of the output file */
   if (conn->outfd > STDERR_FILENO)
@@ -491,7 +491,7 @@ static int read_answer(connection_t * conn)
   if (conn->flags & GTGET_FLAG_DOMD5) {
     unsigned char buf[256];
     unsigned char hash[16];
-    md5_finish(&ctx, hash);
+    mbedtls_md5_finish(&ctx, hash);
     fmt_base64(buf, hash, 16);
 
     if (strcmp((char *) buf, conn->response->digest)) {

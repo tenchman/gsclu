@@ -16,30 +16,31 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <polarssl/ssl.h>
-#include <polarssl/net.h>
-#include <polarssl/entropy.h>
-#include <polarssl/ctr_drbg.h>
-#include <polarssl/error.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/net.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
+#include <mbedtls/error.h>
 #include "strbuf.h"
 #include "gtget.h"
 
 extern int timedout;
 
 typedef struct sslparam_t {
-  ssl_context ssl;
-  ssl_session ssn;
-  pk_context pk;
-  x509_crt cacert;
-  x509_crt clicert;
-  entropy_context entropy;
-  ctr_drbg_context ctr_drbg;
+  mbedtls_ssl_context ssl;
+  mbedtls_ssl_session ssn;
+  mbedtls_ssl_config conf;
+  mbedtls_pk_context pk;
+  mbedtls_x509_crt cacert;
+  mbedtls_x509_crt clicert;
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg;
 } sslparam_t;
 
 static void print_ssl_error(int e)
 {
   char buf[256];
-  error_strerror(e, buf, sizeof(buf));
+  mbedtls_strerror(e, buf, sizeof(buf));
   write2f("%s\n", buf);
 }
 
@@ -53,10 +54,10 @@ ssize_t gtget_ssl_write(connection_t * c, char *buf, size_t n)
   alarm(c->timeout);
   while (n > 0 && r >= 0) {
     s = n < SSL_MAX_PLAINTEXT_LEN ? n : SSL_MAX_PLAINTEXT_LEN;
-    while ((r = ssl_write(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
-      if (POLARSSL_ERR_NET_WANT_WRITE == r) {
+    while ((r = mbedtls_ssl_write(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
+      if (MBEDTLS_ERR_SSL_WANT_WRITE == r) {
 	/* */
-      } else if (POLARSSL_ERR_NET_WANT_READ == r) {
+      } else if (MBEDTLS_ERR_SSL_WANT_READ == r) {
 	/* */
       } else {
 	break;
@@ -79,26 +80,26 @@ ssize_t gtget_ssl_read(connection_t * c, char *buf, size_t n)
   if (timedout)
     return -1;
   alarm(c->timeout);
-  while ((r = ssl_read(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
-    if (POLARSSL_ERR_NET_WANT_WRITE == r) {
+  while ((r = mbedtls_ssl_read(&ssl->ssl, (unsigned char *)buf, n)) <= 0) {
+    if (MBEDTLS_ERR_SSL_WANT_WRITE == r) {
       /* */
-    } else if (POLARSSL_ERR_NET_WANT_READ == r) {
+    } else if (MBEDTLS_ERR_SSL_WANT_READ == r) {
       /* */
     } else {
       break;
     }
   }
   alarm(0);
-  if (r == POLARSSL_ERR_NET_CONN_RESET)
+  if (r == MBEDTLS_ERR_NET_CONN_RESET)
     return 0;
   return r;
 }
 
-static int verify_cb(void *arg, x509_crt * crt, int depth, int *flags)
+static int verify_cb(void *arg, mbedtls_x509_crt * crt, int depth, uint32_t *flags)
 {
   connection_t *conn = (connection_t *) arg;
   int cnlen = strlen(conn->remote->host);
-  x509_name *name;
+  mbedtls_x509_name *name;
   name = &crt->subject;
   while (name != NULL) {
     if (memcmp(name->oid.p, "\x55\x04\x03", 3) == 0) {
@@ -108,8 +109,8 @@ static int verify_cb(void *arg, x509_crt * crt, int depth, int *flags)
     }
     name = name->next;
   }
-  write2f("%s: POLARSSL_ERR_X509_CERT_VERIFY_FAILED\n", __func__);
-  return POLARSSL_ERR_X509_CERT_VERIFY_FAILED;
+  write2f("%s: MBEDTLS_ERR_X509_CERT_VERIFY_FAILED\n", __func__);
+  return MBEDTLS_ERR_X509_CERT_VERIFY_FAILED;
 }
 
 REGPARM(1)
@@ -131,7 +132,7 @@ void gtget_ssl_init(connection_t * conn)
       servercert = tryopen("cacerts.pem");
     if (!(servercert))
       die(conn, "can't open cacert", NULL);
-    if (x509_crt_parse_file(&ssl->cacert, servercert))
+    if (mbedtls_x509_crt_parse_file(&ssl->cacert, servercert))
       die(conn, "error reading cacert", servercert);
   }
 
@@ -140,9 +141,9 @@ void gtget_ssl_init(connection_t * conn)
     if (!(clientkey = tryopen_alt(conn, conn->ckFile, "clientkey.pem")))
       clientkey = clientcert;
 
-    if (x509_crt_parse_file(&ssl->clicert, clientcert)) {
+    if (mbedtls_x509_crt_parse_file(&ssl->clicert, clientcert)) {
       die(conn, "error reading client certificate", clientcert);
-      if (clientkey && pk_parse_public_keyfile(&ssl->pk, clientkey))
+      if (clientkey && mbedtls_pk_parse_public_keyfile(&ssl->pk, clientkey))
         die(conn, "error reading client key", clientkey);
 
     }
@@ -150,25 +151,27 @@ void gtget_ssl_init(connection_t * conn)
     write2f("using client key:  %s\n", clientkey);
   }
 
-  entropy_init(&ssl->entropy);
-  if (0 != (ctr_drbg_init(&ssl->ctr_drbg, entropy_func, &ssl->entropy,
+  mbedtls_entropy_init(&ssl->entropy);
+  if (0 != (mbedtls_ctr_drbg_seed(&ssl->ctr_drbg, mbedtls_entropy_func, &ssl->entropy,
 	  (const unsigned char *)pers, strlen(pers))))
     die(conn, "Seeding the random number generator failed", NULL);
 
 
-  if (ssl_init(&ssl->ssl))
-    die(conn, "error initializing SSL", NULL);
-
-  ssl_set_endpoint(&ssl->ssl, SSL_IS_CLIENT);
+  mbedtls_ssl_init(&ssl->ssl);
+  mbedtls_ssl_config_init(&ssl->conf);
+  mbedtls_ssl_config_defaults(&ssl->conf,
+      MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
+  mbedtls_ssl_conf_ca_chain(&ssl->conf, &ssl->cacert, NULL);
+  mbedtls_ssl_conf_authmode(&ssl->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+  mbedtls_ssl_conf_verify(&ssl->conf, verify_cb, conn);
+  mbedtls_ssl_conf_ciphersuites(&ssl->conf, mbedtls_ssl_list_ciphersuites());
+  mbedtls_ssl_conf_rng(&ssl->conf, mbedtls_ctr_drbg_random, &ssl->ctr_drbg);
+  mbedtls_ssl_setup(&ssl->ssl, &ssl->conf);
+  mbedtls_ssl_set_hostname(&ssl->ssl, conn->remote->host);
+  mbedtls_ssl_set_session(&ssl->ssl, &ssl->ssn);
   if ((conn->flags & GTGET_FLAG_INSECURE)) {
-    ssl_set_authmode(&ssl->ssl, SSL_VERIFY_NONE);
+    mbedtls_ssl_conf_authmode(&ssl->conf, MBEDTLS_SSL_VERIFY_NONE);
   }
-  ssl_set_ca_chain(&ssl->ssl, &ssl->cacert, NULL, conn->remote->host);
-  ssl_set_authmode(&ssl->ssl, SSL_VERIFY_OPTIONAL);
-  ssl_set_verify(&ssl->ssl, verify_cb, conn);
-  ssl_set_ciphersuites(&ssl->ssl, ssl_list_ciphersuites());
-  ssl_set_session(&ssl->ssl, &ssl->ssn);
-  ssl_set_rng(&ssl->ssl, ctr_drbg_random, &ssl->ctr_drbg);
   conn->ssl = ssl;
 }
 
@@ -181,10 +184,10 @@ void gtget_ssl_connect(connection_t * conn)
   if (conn->proxy->host)
     proxy_connect(conn);
 
-  ssl_set_bio(&ssl->ssl, net_recv, &conn->sockfd, net_send, &conn->sockfd);
+  mbedtls_ssl_set_bio(&ssl->ssl, &conn->sockfd, mbedtls_net_send, mbedtls_net_recv, NULL );
 
-  while ((ret = ssl_handshake(&ssl->ssl))) {
-    if (ret != POLARSSL_ERR_NET_WANT_WRITE && ret != POLARSSL_ERR_NET_WANT_READ)
+  while ((ret = mbedtls_ssl_handshake(&ssl->ssl))) {
+    if (ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret != MBEDTLS_ERR_SSL_WANT_READ)
       break;
   }
 
@@ -197,7 +200,7 @@ void gtget_ssl_connect(connection_t * conn)
   }
 
   if (conn->verbosity >= 1)
-    write2f(" => ssl_handshake OK. %s\n", ssl_get_ciphersuite(&ssl->ssl));
+    write2f(" => ssl_handshake OK. %s\n", mbedtls_ssl_get_ciphersuite(&ssl->ssl));
 
   conn->read = gtget_ssl_read;
   conn->write = gtget_ssl_write;
@@ -208,6 +211,6 @@ void gtget_ssl_close(connection_t * conn)
 {
   if (conn->ssl) {
     sslparam_t *ssl = (sslparam_t *) conn->ssl;
-    ssl_close_notify(&ssl->ssl);
+    mbedtls_ssl_close_notify(&ssl->ssl);
   }
 }
