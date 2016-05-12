@@ -215,7 +215,7 @@ char *tio_gets(io_ctx_t *io, char *buf, size_t len)
       }
       io->ibuf.pos = io->ibuf.buf;
       io->ibuf.total = rem + n;
-    } else if (-1 == (int)(io->ibuf.total = io->recv(io, io->ibuf.buf, sizeof(io->ibuf.buf)))) {
+    } else if (0 >= (int)(io->ibuf.total = io->recv(io, io->ibuf.buf, sizeof(io->ibuf.buf)))) {
       break;
     }
   }
