@@ -593,18 +593,6 @@ proc_t *find_child(int pid)
   return P;
 }
 
-REGPARM(1)
-proc_t *find_pid(int pid)
-{
-  proc_t *P = processes;
-  while (P) {
-    if (P->pid && (pid == P->pid))
-      break;
-    P = P->next;
-  }
-  return P;
-}
-
 void forest(proc_t * P, unsigned long flags, int pad)
 {
   while (P && P->pid) {
