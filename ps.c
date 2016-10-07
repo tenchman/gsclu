@@ -568,11 +568,16 @@ static int read_process_list(unsigned long flags)
 	  continue;
 	if (!processes)
 	  processes = P;
-	if (last) {
-	  P->last = last;
-	  last->next = P;
+	if (P->pid == 2) { /* put kthreadd on top */
+	  P->next = processes;
+	  processes = P;
+	} else {
+	  if (last) {
+	    P->last = last;
+	    last->next = P;
+	  }
+	  last = P;
 	}
-	last = P;
       }
     }
     closedir(dir);
@@ -603,19 +608,22 @@ void forest(proc_t * P, unsigned long flags, int pad)
     } else {
       write_format_e(P, pad);
     }
-    P->pid = 0;
-    if (!P->ppid)
-      break;			/* init */
-    ++pad;
+    P->pid = 0;	/* mark as already printed */
     P = find_child(pid);
-    if (P)
-      forest(P, flags, pad);
-    --pad;
+    if (P) {
+      if (P->ppid != 1) {
+	++pad;
+	forest(P, flags, pad);
+	--pad;
+      } else {
+	forest(P, flags, pad);
+      }
+    }
     P = find_child(ppid);
-    if (P)
+    if (P) {
       forest(P, flags, pad);
-
-  };
+    }
+  }
 }
 
 REGPARM(1)
