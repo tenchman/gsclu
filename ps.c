@@ -630,11 +630,10 @@ REGPARM(1)
 static void show_process_list(unsigned long flags)
 {
   proc_t *P = processes;
-  int pad = 0;
   while (P) {
     if (flags & PROC_FOREST) {
       if (P->pid && (P->ppid <= 1)) {
-	forest(P, flags, pad);
+	forest(P, flags, 0);
       }
     } else if (!(flags & PROC_OTHER_USERS) && my_uid != P->uid) {
       /* */
@@ -643,7 +642,7 @@ static void show_process_list(unsigned long flags)
     } else if (!(flags & PROC_WITHOUT_TTY) && !P->tty) {
       /* */
     } else if (flags & PROC_USER_FMT) {
-      write_process_info(P, pad);
+      write_process_info(P, 0);
     } else {
       write_format_e(P, 0);
     }
