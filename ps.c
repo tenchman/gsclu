@@ -104,7 +104,6 @@ struct proc_t {
 };
 
 proc_t *processes = NULL;
-proc_t *last = NULL;
 
 char buffer[BUFSIZE];
 char buf2[BUFSIZE];
@@ -557,7 +556,7 @@ REGPARM(1)
 static int read_process_list(unsigned long flags)
 {
   DIR *dir;
-  proc_t *P;
+  proc_t *P, *last = NULL;
   if ((dir = opendir("/proc"))) {
     struct dirent *de;
     while ((de = readdir(dir))) {
