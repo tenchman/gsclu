@@ -455,17 +455,17 @@ int sv_parsecommand(char *cmd)
 {
   int ret = -1;
 
-  if (0 == strcmp(cmd, "ls")) {
+  if (strequal(cmd, "ls")) {
     ret = SV_CMD_LISTSCRIPTS;
-  } else if (0 == strcmp(cmd, "get")) {
+  } else if (strequal(cmd, "get")) {
     ret = SV_CMD_GETSCRIPT;
-  } else if (0 == strcmp(cmd, "put")) {
+  } else if (strequal(cmd, "put")) {
     ret = SV_CMD_PUTSCRIPT;
-  } else if (0 == strcmp(cmd, "rm")) {
+  } else if (strequal(cmd, "rm")) {
     ret = SV_CMD_DELETESCRIPT;
-  } else if (0 == strcmp(cmd, "check")) {
+  } else if (strequal(cmd, "check")) {
     ret = SV_CMD_CHECKSCRIPT;
-  } else if (0 == strcmp(cmd, "set")) {
+  } else if (strequal(cmd, "set")) {
     ret = SV_CMD_SETACTIVE;
   }
   return ret;
