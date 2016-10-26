@@ -15,6 +15,7 @@
 #include <ctype.h>
 #include <poll.h>
 #include <sys/socket.h>
+#include <mbedtls/platform.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/base64.h>
 #include <mbedtls/havege.h>
