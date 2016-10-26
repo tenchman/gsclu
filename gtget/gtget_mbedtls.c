@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <mbedtls/platform.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/net.h>
 #include <mbedtls/entropy.h>
