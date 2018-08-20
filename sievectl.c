@@ -121,7 +121,9 @@ static int sv_expect(sievectx_t *ctx, const char *s)
   memset(&iobuf, 0, sizeof(iobuf));
   if (-1 == (len = tio_recv(ctx->io, iobuf, sizeof(iobuf)))) {
     fprintf(stderr, "%s: tio_recv failed\n", __func__);
-  } else if (0 != strncasecmp(iobuf + len - slen, s, slen)) {
+  } else if (0 != strncasecmp(iobuf, s, slen)) {
+    fprintf(stderr, "%s: unexpected answer; '%s'", __func__, iobuf);
+  } else if (!isspace(iobuf[slen])) {
     fprintf(stderr, "%s: unexpected answer; '%s'", __func__, iobuf);
   } else {
     ret = 0;
@@ -158,7 +160,7 @@ static int sv_authenticate_plain(sievectx_t *ctx)
 
   if (-1 == (ret = tio_send(ctx->io, iobuf, len))) {
     fprintf(stderr, "%s: tio_send failed\n", __func__);
-  } else if (-1 == (ret = sv_expect(ctx, "OK\r\n"))) {
+  } else if (-1 == (ret = sv_expect(ctx, "OK"))) {
     /* */
   } else {
     ctx->loggedin = 0;
@@ -284,7 +286,7 @@ static int sv_starttls(sievectx_t *ctx)
   int ret;
   if (-1 == (ret = tio_send(ctx->io, "STARTTLS\r\n", 10))) {
     fprintf(stderr, "can't send STARTTLS\n");
-  } else if (-1 == (ret = sv_expect(ctx, "OK\r\n"))) {
+  } else if (-1 == (ret = sv_expect(ctx, "OK"))) {
     fprintf(stderr, "unexpected answer after STARTTLS: %s\n", iobuf);
   } else if (-1 == (ret = tio_tls_handshake(ctx->io))) {
     /* errors reported by tio_tls_handshake() */
@@ -345,7 +347,7 @@ void sv_shutdown(sievectx_t *ctx)
 {
   if (ctx->loggedin) {
     tio_send(ctx->io, "LOGOUT\r\n", 8);
-    sv_expect(ctx, "OK\r\n");
+    sv_expect(ctx, "OK");
     ctx->loggedin = 0;
   }
   tio_shutdown(ctx->io);
