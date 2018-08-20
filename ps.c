@@ -357,7 +357,7 @@ static int write_process_info(proc_t * P, int pad)
   *buf++ = ' ';
   /* TTY */
   buf += write_tty(buf, end, P->tty);
-  buf = buffer + 44;
+  buf = buffer + 46;
   *buf++ = ' ';
   /* STAT */
   buf += write_stat(buf, end, P);
