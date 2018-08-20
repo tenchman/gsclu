@@ -113,7 +113,7 @@ time_t seconds_since_boot;
 time_t seconds_since_1970;
 ull kb_main_total;
 int screen_width = 80;
-int total_width = 80;
+int total_width = 0;
 uid_t my_uid;
 int my_tty;
 
@@ -125,6 +125,7 @@ int write_stdout(char *str, char *end)
   len = end - str;
   if (total_width && len > total_width)
     len = total_width;
+
   str[len] = '\n';
   len = write(1, str, len + 1);
   return len;
@@ -750,7 +751,8 @@ int main(int argc, char **argv)
 	flags |= PROC_FOREST;
 	break;
       case 'w':
-	total_width += screen_width;
+	if (total_width)
+	  total_width += screen_width;
       }
       argv[args]++;
     }
