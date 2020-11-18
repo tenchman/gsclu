@@ -230,7 +230,10 @@ static int sv_do_script(sievectx_t *ctx, char *command)
       die(ctx, "%s: zero sized script\n", __func__);
     }
     /* command + script name + literal-c2s */
-    cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%zu+}\r\n", command, ctx->script, (size_t)st.st_size);
+    if ('C' == command[0])
+      cmdlen = snprintf(cmd, sizeof(cmd), "%s {%zu+}\r\n", command, (size_t)st.st_size);
+    else
+      cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%zu+}\r\n", command, ctx->script, (size_t)st.st_size);
     tio_send(ctx->io, cmd, cmdlen);
     while (0 < (r = read(ctx->fd, buf, BUFSIZ)))
       tio_send(ctx->io, buf, r);
@@ -250,8 +253,10 @@ static int sv_do_script(sievectx_t *ctx, char *command)
 	die(ctx, "%s: out of memory\n", __func__);
       pos = buf + buflen;
     }
-    /* command + script name + literal-c2s */
-    cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%d+}\r\n", command, ctx->script, buflen);
+    if ('C' == command[0])
+      cmdlen = snprintf(cmd, sizeof(cmd), "%s {%d+}\r\n", command, buflen);
+    else
+      cmdlen = snprintf(cmd, sizeof(cmd), "%s \"%s\" {%d+}\r\n", command, ctx->script, buflen);
     tio_send(ctx->io, cmd, cmdlen);
     tio_send(ctx->io, buf, buflen);
     tio_send(ctx->io, "\r\n", 2);
